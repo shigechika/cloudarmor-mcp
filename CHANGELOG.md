@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.1...v0.1.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* add mcp-name marker to README for MCP Registry ownership validation ([#6](https://github.com/shigechika/cloudarmor-mcp/issues/6)) ([ad596fc](https://github.com/shigechika/cloudarmor-mcp/commit/ad596fc15218d4cf8d63a4c0d43918754328892d))
+
 ## [0.1.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.0...v0.1.1) (2026-08-06)
 
 
