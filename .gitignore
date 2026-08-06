@@ -7,3 +7,4 @@ dist/
 *.pyc
 rules.ini
 key.json
+site/
