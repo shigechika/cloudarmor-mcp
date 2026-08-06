@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.shigechika/cloudarmor-mcp -->
 # cloudarmor-mcp
 
 MCP server for [Google Cloud Armor](https://cloud.google.com/armor) WAF log patrol — deny summaries per rule, home-region false-positive checks, and preview (dry-run) rule review, straight from Cloud Logging.
