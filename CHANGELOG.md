@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.2...v0.2.0) (2026-08-06)
+
+
+### Features
+
+* add live smoke test (scripts/smoke_test.py) for the fleet smoke runner ([#8](https://github.com/shigechika/cloudarmor-mcp/issues/8)) ([dd52ffe](https://github.com/shigechika/cloudarmor-mcp/commit/dd52ffe87c989724b1511624e4c7a9d793e44122))
+
 ## [0.1.2](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.1...v0.1.2) (2026-08-06)
 
 
