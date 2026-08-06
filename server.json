@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.shigechika/cloudarmor-mcp",
+  "title": "Cloud Armor WAF Patrol MCP",
+  "description": "MCP server for Google Cloud Armor WAF log patrol — deny summaries, false-positive checks, preview rules",
+  "repository": {
+    "url": "https://github.com/shigechika/cloudarmor-mcp",
+    "source": "github"
+  },
+  "version": "0.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "cloudarmor-mcp",
+      "version": "0.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

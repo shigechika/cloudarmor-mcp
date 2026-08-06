@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudarmor-mcp"
+dynamic = ["version"]
+description = "MCP server for Google Cloud Armor WAF log patrol — deny summaries, false-positive checks, preview rules"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "AIKAWA Shigechika"},
+]
+keywords = ["cloud-armor", "waf", "gcp", "mcp", "model-context-protocol", "security", "monitoring"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: Security",
+]
+dependencies = [
+    "google-cloud-logging>=3,<4",
+    "mcp>=1.2,<2",
+]
+
+[project.scripts]
+cloudarmor-mcp = "cloudarmor_mcp.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/shigechika/cloudarmor-mcp"
+Repository = "https://github.com/shigechika/cloudarmor-mcp"
+Issues = "https://github.com/shigechika/cloudarmor-mcp/issues"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.setuptools]
+packages = ["cloudarmor_mcp"]
+
+[tool.setuptools.dynamic]
+version = {attr = "cloudarmor_mcp.__version__"}
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
