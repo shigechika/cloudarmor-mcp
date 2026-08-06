@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.0...v0.1.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* shorten server.json description to satisfy MCP Registry limit ([#4](https://github.com/shigechika/cloudarmor-mcp/issues/4)) ([fb70b9c](https://github.com/shigechika/cloudarmor-mcp/commit/fb70b9c4088483504cc73718393d43b12c53fc55))
+
 ## 0.1.0 (2026-08-06)
 
 
