@@ -1,9 +1,14 @@
 <!-- mcp-name: io.github.shigechika/cloudarmor-mcp -->
+
 # cloudarmor-mcp
+
+English | [日本語](README.ja.md)
 
 MCP server for [Google Cloud Armor](https://cloud.google.com/armor) WAF log patrol — deny summaries per rule, home-region false-positive checks, and preview (dry-run) rule review, straight from Cloud Logging.
 
 Built for a daily "is the WAF healthy?" patrol: one `daily_brief` call answers *what did we block, did we block anyone we shouldn't have, and are the preview rules ready to promote*.
+
+Documentation: <https://shigechika.github.io/cloudarmor-mcp/>
 
 ## Tools
 
@@ -49,6 +54,7 @@ uv tool install cloudarmor-mcp
 | `CLOUDARMOR_BACKEND_SERVICES` | no | Comma-separated backend service names to filter (default: all) |
 | `CLOUDARMOR_HOME_REGION` | no | ISO region code treated as home traffic, e.g. `JP`. Enables the false-positive lens |
 | `CLOUDARMOR_RULES_INI` | no | Path to a rules INI (labels + known-normal priorities, see below) |
+| `CLOUDARMOR_MAX_ENTRIES` | no | Max entries fetched per query (default 2000) |
 
 ### 4. Optional rules INI
 
