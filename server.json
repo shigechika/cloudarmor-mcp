@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.shigechika/cloudarmor-mcp",
   "title": "Cloud Armor WAF Patrol MCP",
-  "description": "MCP server for Google Cloud Armor WAF log patrol — deny summaries, false-positive checks, preview rules",
+  "description": "MCP server for Google Cloud Armor WAF log patrol: deny summaries and false-positive checks",
   "repository": {
     "url": "https://github.com/shigechika/cloudarmor-mcp",
     "source": "github"
