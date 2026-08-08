@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.2.0...v0.3.0) (2026-08-08)
+
+
+### Features
+
+* add pr-gate.yml admission control caller ([#12](https://github.com/shigechika/cloudarmor-mcp/issues/12)) ([2dd3dd6](https://github.com/shigechika/cloudarmor-mcp/commit/2dd3dd631e83e8067d33fbd83ca2fb26c65cfc1b))
+
 ## [0.2.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.1.2...v0.2.0) (2026-08-06)
 
 
