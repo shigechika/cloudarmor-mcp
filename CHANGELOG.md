@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.3.0...v0.3.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* add explicit workflow permissions to ci.yml and release.yml ([#14](https://github.com/shigechika/cloudarmor-mcp/issues/14)) ([4fed0c2](https://github.com/shigechika/cloudarmor-mcp/commit/4fed0c2849928f11189115359614aab6d92b975e))
+
 ## [0.3.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.2.0...v0.3.0) (2026-08-08)
 
 
