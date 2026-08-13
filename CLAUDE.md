@@ -40,10 +40,18 @@ it is deliberately not part of the unit suite.
 
 ### CLI exit codes (`cloudarmor_mcp/__main__.py`)
 
+`CLOUDARMOR_PROJECT` is checked first, before either flag is handled, and
+exits 1 on its own. So:
+
 | Invocation | 0 | 1 | 2 |
 |---|---|---|---|
+| `--version` | always | — | — |
 | `--check` | healthy | `CLOUDARMOR_PROJECT` unset | degraded (probe failed) |
-| `--brief` | every section rendered | any section's query failed | — |
+| `--brief` | every section rendered | `CLOUDARMOR_PROJECT` unset, **or** any section's query failed | — |
+
+Note that an unset `CLOUDARMOR_HOME_REGION` does **not** make `--brief`
+exit 1: `home_region_denies` returns a "check skipped" line and that is
+not an error.
 
 `scripts/smoke_test.py` exits 1 only on `FAIL` or `NO_SPEC`. `OK`,
 `SKIP` **and `RESTRICTED`** all exit 0 — `RESTRICTED` is easy to miss
@@ -96,9 +104,9 @@ when reasoning about that contract.
 ## Traps
 
 - **`ruff format --check .` formats Markdown, not just Python.** ruff
-  0.16.1 reports *22 files* here: 10 `.py` minus `scripts/smoke_harness.py`
-  (excluded from formatting only, via `format.exclude` — `ruff check`
-  still lints it) plus **13 Markdown files**. So editing `README.md`,
+  0.16.1 counts 10 `.py` minus `scripts/smoke_harness.py` (excluded from
+  formatting only, via `format.exclude` — `ruff check` still lints it),
+  **plus every Markdown file in the repository**. So editing `README.md`,
   `CHANGELOG.md`, `REVIEW.md`, `copilot-instructions.md` or anything
   under `docs/` can red the `lint` job in `ci.yml`. Run
   `uv run ruff format --check .` after a docs-only change too.
