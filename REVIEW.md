@@ -90,4 +90,6 @@ reviewer also receives.
   already.
 - Anything `ruff check .` or `ruff format --check .` already fails the
   build on. Both gate this repository, so restating a finding costs a
-  round trip and no information.
+  round trip and no information. This never applies to a rule listed
+  under **Always blocking** above, even if a lint rule happens to fire
+  on the same line.
