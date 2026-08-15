@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "cloudarmor-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["cloudarmor-mcp"],
+      "env": {
+        "CLOUDARMOR_PROJECT": "${CLOUDARMOR_PROJECT:-}",
+        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS:-}",
+        "CLOUDARMOR_BACKEND_SERVICES": "${CLOUDARMOR_BACKEND_SERVICES:-}",
+        "CLOUDARMOR_HOME_REGION": "${CLOUDARMOR_HOME_REGION:-}",
+        "CLOUDARMOR_RULES_INI": "${CLOUDARMOR_RULES_INI:-}",
+        "CLOUDARMOR_MAX_ENTRIES": "${CLOUDARMOR_MAX_ENTRIES:-2000}"
+      }
+    }
+  }
+}

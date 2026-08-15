@@ -69,7 +69,28 @@ uv tool install cloudarmor-mcp
 known_normal_priorities = 500, 600
 ```
 
-### 5. Claude Code
+### 5. Claude Code（プラグイン）
+
+このリポジトリはプラグイン 1 個のマーケットプレイスも兼ねているので、Claude Code から
+そのまま導入できます。
+
+```
+/plugin marketplace add shigechika/cloudarmor-mcp
+/plugin install cloudarmor-mcp@cloudarmor-mcp
+```
+
+プラグインは `uvx cloudarmor-mcp` を起動し、上記の[環境変数](#3-環境変数)と同じものを
+読みます。Claude Code を起動する前に export しておいてください。
+`GOOGLE_APPLICATION_CREDENTIALS` は依然として自分のマシン上に存在するサービスアカウント
+鍵ファイルを指す必要があります — このファイルはプラグインが用意したり取得したりできない
+ので、プラグインの設定だけでは本サーバーを完全には構成できません。
+
+プラグインは `uvx` を起動するため、Claude Code を実行するプロセスの `PATH` に
+`uvx` が通っている必要があります。ログインシェルなら通常問題ありませんが、
+GUI から起動した場合は通っていないことがあります。プラグインが起動しない場合は
+[uv](https://docs.astral.sh/uv/) をシステム全体にインストールしてください。
+
+### 6. Claude Code（手動）
 
 ```bash
 claude mcp add cloudarmor -- cloudarmor-mcp
