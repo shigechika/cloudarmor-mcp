@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "cloudarmor-mcp",
+  "displayName": "Cloud Armor MCP",
+  "description": "Google Cloud Armor WAF log patrol for Claude Code, straight from Cloud Logging. Summarize enforced DENYs per rule, flag home-region false positives, review preview (dry-run) rules, and get a one-shot daily_brief health check. All tools are read-only. Requires CLOUDARMOR_PROJECT and a GOOGLE_APPLICATION_CREDENTIALS service-account key file that has to exist on your own machine -- the plugin's own settings can't supply that file, so this server can't be fully configured through the plugin alone.",
+  "author": {
+    "name": "AIKAWA Shigechika",
+    "url": "https://github.com/shigechika"
+  },
+  "homepage": "https://shigechika.github.io/cloudarmor-mcp/",
+  "repository": "https://github.com/shigechika/cloudarmor-mcp",
+  "license": "MIT",
+  "keywords": [
+    "gcp",
+    "cloud-armor",
+    "waf",
+    "security",
+    "cloud-logging",
+    "audit"
+  ]
+}

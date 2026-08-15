@@ -79,7 +79,27 @@ numbers; without `[home]` every home-region deny is listed as suspicious.
 
 ## 5. Register with an MCP client
 
-Claude Code:
+### Claude Code (plugin)
+
+This repository doubles as a single-plugin marketplace:
+
+```
+/plugin marketplace add shigechika/cloudarmor-mcp
+/plugin install cloudarmor-mcp@cloudarmor-mcp
+```
+
+The plugin launches `uvx cloudarmor-mcp` and reads the same [environment
+variables](#3-environment) as every other transport; export them before
+starting Claude Code. `GOOGLE_APPLICATION_CREDENTIALS` still has to point at a
+service-account key file that exists on your own machine — the plugin can't
+ship or fetch that file for you, so this server can't be fully configured
+through the plugin's own settings alone.
+
+`uvx` must be on the `PATH` of the process that runs Claude Code — a login
+shell usually has it, but a GUI-launched app may not; install
+[uv](https://docs.astral.sh/uv/) system-wide if the plugin fails to start.
+
+### Claude Code (manual)
 
 ```bash
 claude mcp add cloudarmor -- cloudarmor-mcp
