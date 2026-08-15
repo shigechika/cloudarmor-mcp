@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.3.1...v0.4.0) (2026-08-15)
+
+
+### Features
+
+* package the server as a Claude Code plugin ([#19](https://github.com/shigechika/cloudarmor-mcp/issues/19)) ([f995f0c](https://github.com/shigechika/cloudarmor-mcp/commit/f995f0c2dbc89f057e8dd284589807aad85bec0c))
+
 ## [0.3.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.3.0...v0.3.1) (2026-08-11)
 
 
