@@ -59,7 +59,10 @@ package is public and must stay reusable by other organizations.
 Summary tools (`enforce_denies`, `preview_denies`, and the corresponding
 `daily_brief` sections) report priorities and counts only. Source IPs and
 request URLs appear solely in `home_region_denies` and its `daily_brief`
-section, where inspecting them is the purpose of the check.
+section, where inspecting them is the purpose of the check. The `deny-export`
+subcommand (`cloudarmor_mcp/export.py`) is the one deliberate exception: it
+writes per-entry records (IP, host, path, User-Agent) to stdout for a batch
+consumer, never query-string contents, cookies or other headers.
 
 - Flag additions that put request URLs, IPs, headers or user agents into the
   summary sections or into exception messages that callers log.

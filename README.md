@@ -108,6 +108,31 @@ cloudarmor-mcp --check     # config + API probe (exit 0 when healthy)
 cloudarmor-mcp --brief     # print daily_brief to stdout (cron / smoke tests)
 ```
 
+## Exporting one day of DENY entries (batch)
+
+```bash
+cloudarmor-mcp deny-export --date 2026-09-22 --tz Asia/Tokyo > out.tmp && mv out.tmp 2026-09-22.json
+```
+
+Writes one JSON document to stdout with **one record per DENY log entry** of that
+calendar day (`[00:00, 24:00)` in `--tz`, default UTC): the enforced and preview
+policy verdicts (`policy`, `priority`, `action`, `outcome`, `rule_ids`), source IP,
+region code and ASN as Cloud Armor logged them, method, host, path (query string
+dropped — only its length is kept), status, User-Agent (200 chars) and backend.
+`--kind both` (default) fetches entries where either policy says DENY in a single
+query, so a request that matched a preview rule *and* was denied appears once with
+both sections filled. `--backend a,b` overrides `CLOUDARMOR_BACKEND_SERVICES`.
+
+This is the only output of the package that contains per-request log data; it is
+meant for an operator batch on the same host that aggregates the day itself. The
+document ends with `count`, `fetched`, `malformed` and `capped`: when `capped` is
+true the export stopped at `--max-entries` (default 200000; `CLOUDARMOR_MAX_ENTRIES`
+does not apply) and is a prefix of the day, oldest first. Records are streamed, so
+memory does not grow with the day. A day that has not ended yet is refused. Run it
+some minutes after local midnight — Cloud Logging entries arrive with a delay — and
+write to a temporary file first: on a query failure the exit code is 1 and stdout may
+hold an unterminated document.
+
 ## Reading the report
 
 - **Enforced DENY by rule** — your normal blocking volume. Sudden shifts in the mix are worth a look.

@@ -62,6 +62,8 @@ cloudarmor-mcp            # run as an MCP server over stdio
 cloudarmor-mcp --version  # print version and exit
 cloudarmor-mcp --check    # verify config + API access
 cloudarmor-mcp --brief    # print daily_brief to stdout
+cloudarmor-mcp deny-export --date YYYY-MM-DD [--tz ZONE] [--kind both|enforced|preview] [--max-entries N] [--backend a,b]
+                          # one day of DENY entries as JSON (see the README)
 ```
 
 Exit codes:
@@ -70,10 +72,25 @@ Exit codes:
 |---|---|---|---|
 | `--check` | healthy | missing `CLOUDARMOR_PROJECT` | degraded (probe failed) |
 | `--brief` | every section rendered | at least one section's query failed | — |
+| `deny-export` | exported | the Cloud Logging query failed (stdout may hold an unterminated document) | usage or configuration error, including an unset `CLOUDARMOR_PROJECT` and a day that has not ended |
 
 `--brief` is the convenient form for cron jobs and smoke tests: the non-zero
 exit distinguishes "the WAF was quiet" from "we could not read the logs",
 which a text report alone does not.
+
+### `deny-export` document
+
+| Field | Meaning |
+|---|---|
+| `schema` | `cloudarmor-mcp/deny-export/1` |
+| `window` | `start` / `end` of the day as RFC 3339 UTC, half-open |
+| `entries[]` | one record per log entry, oldest first |
+| `entries[].enforced` / `.preview` | `{policy, priority, action, outcome, rule_ids}`; `preview` is `null` when no preview rule matched. `priority` is a string (`"1002"`); the default rule shows as `"2147483647"` |
+| `entries[].ip`, `.region`, `.asn` | `httpRequest.remoteIp`, `remoteIpInfo.regionCode`, `remoteIpInfo.asn` (integer or `null`) |
+| `entries[].host`, `.path`, `.query_len`, `.path_truncated` | from `requestUrl`: host lower-cased without port, path cut at 2048 characters, query string length only |
+| `entries[].method`, `.status`, `.ua`, `.backend`, `.status_details`, `.ts`, `.id`, `.partial` | request method, HTTP status, User-Agent (200 chars), backend service, `statusDetails`, timestamp (UTC), `insertId`, and whether any field could not be read |
+| `count`, `fetched`, `malformed`, `capped` | records written, entries read (at most `max_entries`), entries that could not be turned into a record, and whether the cap stopped the export |
+| `filter` | the Cloud Logging filter that was used |
 
 ## Log filters
 
