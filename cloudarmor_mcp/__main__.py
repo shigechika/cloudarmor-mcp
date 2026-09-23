@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import contextlib
 import os
 import sys
 
@@ -12,8 +13,9 @@ def _deny_export(argv: list[str]) -> int:
     """`cloudarmor-mcp deny-export ...`: one day of DENY entries as JSON on stdout.
 
     Exit 0 exported, 1 the Cloud Logging query failed (stdout may then hold an
-    unterminated document), 2 usage or configuration error — including an
-    unset CLOUDARMOR_PROJECT, unlike --check/--brief which exit 1 for that.
+    unterminated document) or the reader closed the pipe, 2 usage or
+    configuration error — including an unset CLOUDARMOR_PROJECT and a client
+    that cannot be created (credentials), unlike --check/--brief which exit 1.
     """
     from cloudarmor_mcp import export
     from cloudarmor_mcp.client import CloudArmorError, Config
@@ -43,6 +45,11 @@ def _deny_export(argv: list[str]) -> int:
     backends = cfg.backend_services
     if args.backend is not None:
         backends = [b.strip() for b in args.backend.split(",") if b.strip()]
+    try:
+        client = export.LogClient(cfg.project)
+    except CloudArmorError as e:  # missing library or credentials: configuration, not a query failure
+        print(f"deny-export: {e}", file=sys.stderr)
+        return 2
     out = export.utf8_stdout()
     try:
         n = export.run_export(
@@ -53,6 +60,7 @@ def _deny_export(argv: list[str]) -> int:
             kind=args.kind,
             max_entries=args.max_entries,
             out=out,
+            client=client,
         )
     except export.ExportConfigError as e:
         print(f"deny-export: {e}", file=sys.stderr)
@@ -60,9 +68,15 @@ def _deny_export(argv: list[str]) -> int:
     except CloudArmorError as e:
         print(f"deny-export: failed: {e}", file=sys.stderr)
         return 1
+    except BrokenPipeError:  # the reader went away (e.g. `| head`); nothing left to write
+        with contextlib.suppress(OSError):
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        print("deny-export: stdout closed by the reader", file=sys.stderr)
+        return 1
     finally:
-        out.flush()
-        out.detach()
+        with contextlib.suppress(BrokenPipeError, OSError, ValueError):
+            out.flush()
+            out.detach()
     print(f"deny-export: {n} entries for {args.date} ({args.tz})", file=sys.stderr)
     return 0
 

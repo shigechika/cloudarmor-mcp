@@ -72,7 +72,7 @@ Exit codes:
 |---|---|---|---|
 | `--check` | healthy | missing `CLOUDARMOR_PROJECT` | degraded (probe failed) |
 | `--brief` | every section rendered | at least one section's query failed | — |
-| `deny-export` | exported | the Cloud Logging query failed (stdout may hold an unterminated document) | usage or configuration error, including an unset `CLOUDARMOR_PROJECT` and a day that has not ended |
+| `deny-export` | exported | the Cloud Logging query failed (stdout may hold an unterminated document), or the reader closed stdout | usage or configuration error, including an unset `CLOUDARMOR_PROJECT`, a client that cannot be created (credentials) and a day that has not ended |
 
 `--brief` is the convenient form for cron jobs and smoke tests: the non-zero
 exit distinguishes "the WAF was quiet" from "we could not read the logs",

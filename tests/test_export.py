@@ -36,7 +36,7 @@ class FakeClient:
         yield from self.entries[:max_entries]
 
 
-def _deny(priority=1002.0, ip="198.51.100.7", url="https://www.example.org/index.php?x=1", preview=None, **kw):
+def _deny(priority=4242.0, ip="198.51.100.7", url="https://www.example.org/index.php?x=1", preview=None, **kw):
     payload = {
         "enforcedSecurityPolicy": {
             "name": "example-policy",
@@ -93,7 +93,8 @@ def test_day_window_dst_transition_day_is_23_hours():
 
 
 @pytest.mark.parametrize(
-    "date,tz", [("2026-09-24", "Asia/Tokyo"), ("2026/09/03", "UTC"), ("2026-09-23", "Mars/Olympus")]
+    "date,tz",
+    [("2026-09-24", "Asia/Tokyo"), ("2026/09/03", "UTC"), ("2026-9-3", "UTC"), ("2026-09-23", "Mars/Olympus")],
 )
 def test_day_window_rejects_unfinished_or_bad_input(date, tz):
     with pytest.raises(export.ExportConfigError):
@@ -117,7 +118,7 @@ def test_record_enforced_fields():
     rec = export.entry_to_record(_deny())
     assert rec["enforced"] == {
         "policy": "example-policy",
-        "priority": "1002",
+        "priority": "4242",
         "action": "DENY",
         "outcome": "DENY",
         "rule_ids": ["owasp-crs-v030301-id930130-lfi"],
@@ -132,13 +133,13 @@ def test_record_enforced_fields():
 def test_record_preview_and_default_allow_are_both_kept():
     e = _deny(
         priority=2147483647.0,
-        preview={"name": "example-policy", "priority": 702.0, "configuredAction": "DENY", "preconfiguredExprIds": []},
+        preview={"name": "example-policy", "priority": 2424.0, "configuredAction": "DENY", "preconfiguredExprIds": []},
     )
     e.payload["enforcedSecurityPolicy"]["outcome"] = "ACCEPT"
     e.payload["enforcedSecurityPolicy"]["configuredAction"] = "ALLOW"
     rec = export.entry_to_record(e)
     assert rec["enforced"]["priority"] == "2147483647" and rec["enforced"]["outcome"] == "ACCEPT"
-    assert rec["preview"]["priority"] == "702" and rec["preview"]["rule_ids"] == []
+    assert rec["preview"]["priority"] == "2424" and rec["preview"]["rule_ids"] == []
 
 
 def test_record_host_is_lowercased_without_port_or_brackets_and_path_truncated():
@@ -156,6 +157,7 @@ def test_record_malformed_never_raises():
     assert rec["asn"] is None and rec["partial"] is True and rec["ts"] is None
     e = _deny()
     e.payload["securityPolicyRequestData"]["remoteIpInfo"]["asn"] = "x"
+    assert export._int_or_none(float("inf")) is None and export._int_or_none("1e400") is None
     e.payload["enforcedSecurityPolicy"]["preconfiguredExprIds"] = "not-a-list"
     e.http_request["userAgent"] = "ü" * 500
     rec = export.entry_to_record(e)
@@ -228,3 +230,31 @@ def test_run_export_query_failure_leaves_stdout_empty():
 def test_run_export_rejects_bad_options(kw):
     with pytest.raises(export.ExportConfigError):
         _run([], **kw)
+
+
+def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypatch):
+    from cloudarmor_mcp.client import LogClient
+
+    class ResourceExhausted(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    class FakeGcl:
+        def list_entries(self, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise ResourceExhausted("quota")
+            return iter(["a", "b"])
+
+    class Always(FakeGcl):
+        def list_entries(self, **kw):
+            raise ResourceExhausted("quota")
+
+    lc = LogClient.__new__(LogClient)
+    lc._client, lc._ascending, lc._descending, lc.project = FakeGcl(), "asc", "desc", "p"
+    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: None)
+    assert list(lc.raw_entries("f", 10, ascending=True)) == ["a", "b"] and calls["n"] == 2
+    lc._client = Always()
+    with pytest.raises(CloudArmorError):  # a second quota error is reported, not retried again
+        list(lc.raw_entries("f", 10))

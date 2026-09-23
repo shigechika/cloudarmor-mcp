@@ -70,7 +70,7 @@ cloudarmor-mcp deny-export --date YYYY-MM-DD [--tz ZONE] [--kind both|enforced|p
 |---|---|---|---|
 | `--check` | healthy | `CLOUDARMOR_PROJECT` 未設定 | degraded（プローブ失敗） |
 | `--brief` | 全セクションを描画 | いずれかのセクションのクエリが失敗 | — |
-| `deny-export` | 書き出した | Cloud Logging のクエリが失敗（標準出力に途中までの文書が残ることがある） | 使い方・設定の誤り。`CLOUDARMOR_PROJECT` 未設定と、まだ終わっていない日を含む |
+| `deny-export` | 書き出した | Cloud Logging のクエリが失敗（標準出力に途中までの文書が残ることがある）、または読み手が標準出力を閉じた | 使い方・設定の誤り。`CLOUDARMOR_PROJECT` 未設定、クライアントを作れない（認証情報）、まだ終わっていない日を含む |
 
 `--brief` は cron やスモークテストに向いた形です。終了コードが非ゼロかどうかで
 「WAF が静かだった」のか「ログを読めなかった」のかを区別できます。テキストの

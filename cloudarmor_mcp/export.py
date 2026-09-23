@@ -8,6 +8,7 @@ cookies and headers other than User-Agent are never emitted.
 """
 
 import json
+import re
 import sys
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ DEFAULT_MAX_ENTRIES = 200_000
 UA_MAX = 200
 PATH_MAX = 2048
 KINDS = ("both", "enforced", "preview")
+RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 class ExportConfigError(Exception):
@@ -34,6 +36,8 @@ def day_window(date: str, tz: str, now: datetime | None = None) -> tuple[datetim
     The day must have ended: an export of a running day would be silently
     incomplete, and the consumer treats every export as the whole day.
     """
+    if not RE_DATE.match(date or ""):
+        raise ExportConfigError(f"--date must be YYYY-MM-DD, got {date!r}")
     try:
         d = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError as e:
@@ -66,7 +70,7 @@ def _policy(section) -> dict | None:
 def _int_or_none(v):
     try:
         return int(float(v))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -123,6 +127,7 @@ def run_export(
     max_entries: int,
     out,
     client_factory: Callable[[str], LogClient] | None = None,
+    client: LogClient | None = None,
     now: datetime | None = None,
 ) -> int:
     """Write one JSON document to `out`; return the number of records written.
@@ -131,7 +136,8 @@ def run_export(
     filter errors leave stdout empty. Records are written one per line, so
     memory does not grow with the day. `capped` is decided by asking for one
     entry more than the cap; an export with exactly max_entries entries is
-    complete.
+    complete. Pass `client` to separate client-creation (configuration)
+    errors from query errors.
     """
     if kind not in KINDS:
         raise ExportConfigError(f"--kind must be one of {', '.join(KINDS)}")
@@ -139,7 +145,7 @@ def run_export(
         raise ExportConfigError("--max-entries must be at least 1")
     start, end = day_window(date, tz, now)
     filter_str = build_window_filter(kind, backend_services, start, end)
-    client = (client_factory or LogClient)(project)
+    client = client or (client_factory or LogClient)(project)
     entries: Iterator = client.raw_entries(filter_str, max_entries + 1, ascending=True)
     first = next(entries, None)
 

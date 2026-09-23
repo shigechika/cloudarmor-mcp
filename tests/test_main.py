@@ -19,13 +19,13 @@ class _Client:
         yield from self.entries[:max_entries]
 
 
-def _run(monkeypatch, argv, client=None, env=True):
+def _run(monkeypatch, argv, client=None, env=True, factory=None):
     if env:
         monkeypatch.setenv("CLOUDARMOR_PROJECT", "example-prod")
         monkeypatch.setenv("CLOUDARMOR_BACKEND_SERVICES", "web-backend")
     else:
         monkeypatch.delenv("CLOUDARMOR_PROJECT", raising=False)
-    monkeypatch.setattr(export, "LogClient", lambda project: client or _Client())
+    monkeypatch.setattr(export, "LogClient", factory or (lambda project: client or _Client()))
     monkeypatch.setattr("sys.argv", ["cloudarmor-mcp", *argv])
     with pytest.raises(SystemExit) as e:
         cli.main()
@@ -84,3 +84,27 @@ def test_flags_without_project_still_exit_1(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main()
     assert e.value.code == 1
+
+
+def test_deny_export_client_creation_failure_is_a_config_error(monkeypatch, capsysbinary):
+    def boom(project):
+        raise CloudArmorError("failed to create Cloud Logging client: no credentials")
+
+    rc = _run(monkeypatch, ["deny-export", "--date", "2020-01-01"], factory=boom)
+    assert rc == 2 and capsysbinary.readouterr().out == b""
+
+
+def test_deny_export_broken_pipe_exits_1(monkeypatch, capsys):
+    class Closed:
+        def write(self, s):
+            raise BrokenPipeError()
+
+        def flush(self):
+            raise BrokenPipeError()
+
+        def detach(self):
+            return None
+
+    monkeypatch.setattr(export, "utf8_stdout", lambda: Closed())
+    rc = _run(monkeypatch, ["deny-export", "--date", "2020-01-01"], client=_Client([object()]))
+    assert rc == 1 and "closed by the reader" in capsys.readouterr().err

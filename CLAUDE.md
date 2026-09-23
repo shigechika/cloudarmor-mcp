@@ -48,7 +48,7 @@ exits 1 on its own. So:
 | `--version` | always | — | — |
 | `--check` | healthy | `CLOUDARMOR_PROJECT` unset | degraded (probe failed) |
 | `--brief` | every section rendered | `CLOUDARMOR_PROJECT` unset, **or** any section's query failed | — |
-| `deny-export` | exported | Cloud Logging query failed | usage/config error, **including** `CLOUDARMOR_PROJECT` unset and a day that has not ended |
+| `deny-export` | exported | Cloud Logging query failed, or the reader closed stdout | usage/config error, **including** `CLOUDARMOR_PROJECT` unset, a client that cannot be created (credentials) and a day that has not ended |
 
 `deny-export` is dispatched on `sys.argv[1]` before the flag parser and checks
 `CLOUDARMOR_PROJECT` inside the subcommand, exiting 2 like the sibling batch
