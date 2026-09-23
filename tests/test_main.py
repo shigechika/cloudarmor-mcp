@@ -108,3 +108,11 @@ def test_deny_export_broken_pipe_exits_1(monkeypatch, capsys):
     monkeypatch.setattr(export, "utf8_stdout", lambda: Closed())
     rc = _run(monkeypatch, ["deny-export", "--date", "2020-01-01"], client=_Client([object()]))
     assert rc == 1 and "closed by the reader" in capsys.readouterr().err
+
+
+def test_deny_export_bad_input_wins_over_client_failure(monkeypatch, capsysbinary):
+    def boom(project):
+        raise CloudArmorError("no credentials")
+
+    rc = _run(monkeypatch, ["deny-export", "--date", "2026-9-3"], factory=boom)
+    assert rc == 2 and capsysbinary.readouterr().out == b""

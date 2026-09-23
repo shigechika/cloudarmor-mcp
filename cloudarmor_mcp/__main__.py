@@ -45,6 +45,13 @@ def _deny_export(argv: list[str]) -> int:
     backends = cfg.backend_services
     if args.backend is not None:
         backends = [b.strip() for b in args.backend.split(",") if b.strip()]
+    try:  # validate the arguments before touching Google, so bad input is reported even without credentials
+        export.day_window(args.date, args.tz)
+        if args.max_entries < 1:
+            raise export.ExportConfigError("--max-entries must be at least 1")
+    except export.ExportConfigError as e:
+        print(f"deny-export: {e}", file=sys.stderr)
+        return 2
     try:
         client = export.LogClient(cfg.project)
     except CloudArmorError as e:  # missing library or credentials: configuration, not a query failure
