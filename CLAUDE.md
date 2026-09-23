@@ -48,6 +48,12 @@ exits 1 on its own. So:
 | `--version` | always | — | — |
 | `--check` | healthy | `CLOUDARMOR_PROJECT` unset | degraded (probe failed) |
 | `--brief` | every section rendered | `CLOUDARMOR_PROJECT` unset, **or** any section's query failed | — |
+| `deny-export` | exported | Cloud Logging query failed, or the reader closed stdout | usage/config error, **including** `CLOUDARMOR_PROJECT` unset, a client that cannot be created (credentials) and a day that has not ended |
+
+`deny-export` is dispatched on `sys.argv[1]` before the flag parser and checks
+`CLOUDARMOR_PROJECT` inside the subcommand, exiting 2 like the sibling batch
+CLIs (`keycloak-mcp spray-report`, `gwsadm-mcp dmarc-reports`); the flags keep
+their historical 1.
 
 Note that an unset `CLOUDARMOR_HOME_REGION` does **not** make `--brief`
 exit 1: `home_region_denies` returns a "check skipped" line and that is
@@ -70,8 +76,12 @@ when reasoning about that contract.
 - `cloudarmor_mcp/rules.py` — `load_rules()`, the optional
   `CLOUDARMOR_RULES_INI` parser producing labels and
   `known_normal_priorities`.
+- `cloudarmor_mcp/export.py` — the `deny-export` subcommand: fixed-day
+  window (`day_window`), per-entry flattening (`entry_to_record`) and the
+  streaming JSON writer (`run_export`). The one place that emits
+  per-request log data (see REVIEW.md).
 - `cloudarmor_mcp/__main__.py` — console script (`cloudarmor-mcp`),
-  `--check` and `--brief`.
+  `--check`, `--brief` and the `deny-export` dispatch.
 - `scripts/smoke_harness.py` — a **verbatim shared copy** used by
   sibling MCP servers and drift-checked across repositories. Changes
   belong upstream, not here.

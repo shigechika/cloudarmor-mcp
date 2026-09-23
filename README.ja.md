@@ -106,6 +106,28 @@ cloudarmor-mcp --check     # 設定と API 疎通の確認（healthy なら exit
 cloudarmor-mcp --brief     # daily_brief を標準出力へ（cron / スモークテスト用）
 ```
 
+## 1 日分の DENY エントリーを書き出す（バッチ用）
+
+```bash
+cloudarmor-mcp deny-export --date 2026-09-22 --tz Asia/Tokyo > out.tmp && mv out.tmp 2026-09-22.json
+```
+
+その暦日（`--tz` の `[00:00, 24:00)`。既定は UTC）の DENY ログを **1 エントリー 1 レコード**の
+JSON 1 文書で標準出力に書きます。enforced と preview それぞれのポリシー判定（`policy`・
+`priority`・`action`・`outcome`・`rule_ids`）、Cloud Armor が記録した送信元 IP・地域コード・ASN、
+メソッド、ホスト、パス（クエリ文字列は捨て、長さだけ残す）、ステータス、User-Agent（200 文字）、
+バックエンドを含みます。`--kind both`（既定）はどちらかのポリシーが DENY のエントリーを 1 回の
+クエリで取るので、preview ルールに一致しつつ拒否もされたリクエストは両方の節が埋まった 1 レコードに
+なります。`--backend a,b` は `CLOUDARMOR_BACKEND_SERVICES` を上書きします。
+
+パッケージの中でリクエスト単位のログデータを含む出力はこれだけです。同じホストで動く運用バッチが
+その日を自分で集計する用途を想定しています。文書の末尾に `count`・`fetched`・`malformed`・`capped`
+が付き、`capped` が true なら `--max-entries`（既定 200000。`CLOUDARMOR_MAX_ENTRIES` は効きません）で
+打ち切られた、古い順の先頭部分です。レコードは逐次に書くのでメモリは日の大きさに比例しません。
+終わっていない日は拒否します。Cloud Logging のエントリーは遅れて届くので現地の 0 時から数分おいて
+実行し、まず一時ファイルに書いてください。クエリ失敗時は終了コード 1 で、標準出力に途中までの
+文書が残ることがあります。
+
 ## レポートの読み方
 
 - **ルール別 enforce 遮断** — 平常時の遮断量です。内訳の急な変化は確認する価値があります。

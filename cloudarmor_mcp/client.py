@@ -6,6 +6,7 @@ network access.
 """
 
 import os
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -50,6 +51,31 @@ def start_time(since_hours: float, now: datetime | None = None) -> str:
     return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _filter_parts(kind: str, backend_services: list[str], region_code: str | None = None) -> list[str]:
+    """The filter clauses shared by the relative-window and fixed-window filters."""
+    parts = ['resource.type="http_load_balancer"']
+    if kind == "enforced":
+        parts.append('jsonPayload.enforcedSecurityPolicy.outcome="DENY"')
+    elif kind == "preview":
+        parts.append('jsonPayload.previewSecurityPolicy.configuredAction="DENY"')
+    elif kind == "both":
+        parts.append(
+            '(jsonPayload.enforcedSecurityPolicy.outcome="DENY"'
+            ' OR jsonPayload.previewSecurityPolicy.configuredAction="DENY")'
+        )
+    else:
+        raise CloudArmorError(f"unknown filter kind: {kind!r}")
+    if region_code:
+        parts.append("jsonPayload.securityPolicyRequestData.remoteIpInfo.regionCode=" + _quote(region_code))
+    if backend_services:
+        if len(backend_services) == 1:
+            parts.append(f"resource.labels.backend_service_name={_quote(backend_services[0])}")
+        else:
+            joined = " OR ".join(_quote(b) for b in backend_services)
+            parts.append(f"resource.labels.backend_service_name=({joined})")
+    return parts
+
+
 def build_filter(
     kind: str,
     since_hours: float,
@@ -64,22 +90,25 @@ def build_filter(
     region_code: optionally restrict to requests whose source IP geolocates
           to this ISO region code (e.g. "JP") — the false-positive lens.
     """
-    parts = ['resource.type="http_load_balancer"']
-    if kind == "enforced":
-        parts.append('jsonPayload.enforcedSecurityPolicy.outcome="DENY"')
-    elif kind == "preview":
-        parts.append('jsonPayload.previewSecurityPolicy.configuredAction="DENY"')
-    else:
-        raise CloudArmorError(f"unknown filter kind: {kind!r}")
-    if region_code:
-        parts.append("jsonPayload.securityPolicyRequestData.remoteIpInfo.regionCode=" + _quote(region_code))
-    if backend_services:
-        if len(backend_services) == 1:
-            parts.append(f"resource.labels.backend_service_name={_quote(backend_services[0])}")
-        else:
-            joined = " OR ".join(_quote(b) for b in backend_services)
-            parts.append(f"resource.labels.backend_service_name=({joined})")
+    parts = _filter_parts(kind, backend_services, region_code)
     parts.append(f'timestamp >= "{start_time(since_hours, now)}"')
+    return " ".join(parts)
+
+
+def _rfc3339(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def build_window_filter(kind: str, backend_services: list[str], start: datetime, end: datetime) -> str:
+    """Filter for the half-open window [start, end) — used by deny-export.
+
+    kind may also be "both": entries where either policy reports DENY.
+    """
+    if end <= start:
+        raise CloudArmorError("window end must be after its start")
+    parts = _filter_parts(kind, backend_services)
+    parts.append(f'timestamp >= "{_rfc3339(start)}"')
+    parts.append(f'timestamp < "{_rfc3339(end)}"')
     return " ".join(parts)
 
 
@@ -131,6 +160,7 @@ class LogClient:
         except Exception as e:
             raise CloudArmorError(f"failed to create Cloud Logging client: {e}") from e
         self._descending = gcl.DESCENDING
+        self._ascending = gcl.ASCENDING
         self.project = project
 
     def deny_entries(self, filter_str: str, kind: str, max_entries: int) -> Iterator[DenyEntry]:
@@ -148,3 +178,28 @@ class LogClient:
             raise
         except Exception as e:
             raise CloudArmorError(f"Cloud Logging query failed: {e}") from e
+
+    def raw_entries(self, filter_str: str, max_entries: int, ascending: bool = False) -> Iterator:
+        """Yield up to max_entries SDK log entries unchanged (deny-export uses this).
+
+        Oldest first when ascending, so a capped export is a contiguous prefix of
+        the window. A quota error (429) before the first entry is retried once.
+        """
+        for attempt in (1, 2):
+            yielded = False
+            try:
+                it = self._client.list_entries(
+                    filter_=filter_str,
+                    order_by=self._ascending if ascending else self._descending,
+                    page_size=min(max_entries, 1000),
+                    max_results=max_entries,
+                )
+                for entry in it:
+                    yielded = True
+                    yield entry
+                return
+            except Exception as e:
+                if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
+                    time.sleep(15)
+                    continue
+                raise CloudArmorError(f"Cloud Logging query failed: {e}") from e

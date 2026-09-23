@@ -21,7 +21,10 @@ reviewer also receives.
   which is exactly how a busy day gets mistaken for a quiet one. A
   caller that discards the `cap` half of `_collect`'s `(entries, cap)`
   return belongs here too — it throws away the ability to flag
-  truncation at all.
+  truncation at all. `deny-export` satisfies this with an explicit
+  `capped` boolean decided by fetching one entry past the cap; a path
+  that drops it, or that treats an export of exactly `max_entries`
+  entries as capped, is the same defect.
 - **A priority read without `_normalize_priority`.** Cloud Logging
   returns `jsonPayload.*SecurityPolicy.priority` as a JSON number, so
   `101` arrives as `101.0`; the normalization folds integral floats
@@ -39,7 +42,12 @@ reviewer also receives.
   and counts only. Request URLs, source IPs, headers and user agents
   belong solely to `home_region_denies` and its `daily_brief` section,
   where inspecting them is the point — including in exception messages
-  a caller might log.
+  a caller might log. The single exception is `cloudarmor_mcp/export.py`
+  (`deny-export`), which writes per-entry records — IP, host, path,
+  User-Agent — to stdout for an operator batch on the same host. Even
+  there, query-string contents, cookies and headers other than
+  User-Agent are blocking; the MCP tools and `--brief` stay
+  aggregate-only.
 - **A change to `health_check`'s key set.** It returns `status`,
   `service`, `version`, `project`, `backend_services`, `home_region`,
   `rules_ini` and `probe` on **every** path including the error path,

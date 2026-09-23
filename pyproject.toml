@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "google-cloud-logging>=3,<4",
     "mcp>=1.2,<2",
+    "tzdata; sys_platform == 'win32'",
 ]
 
 [project.scripts]
