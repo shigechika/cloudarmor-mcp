@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.4.0...v0.5.0) (2026-09-23)
+
+
+### Features
+
+* **cli:** add deny-export subcommand for one-day per-entry DENY JSON ([#24](https://github.com/shigechika/cloudarmor-mcp/issues/24)) ([07423a9](https://github.com/shigechika/cloudarmor-mcp/commit/07423a91daa96101a9978f9fceb62247d8e05e1d))
+
 ## [0.4.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.3.1...v0.4.0) (2026-08-15)
 
 
