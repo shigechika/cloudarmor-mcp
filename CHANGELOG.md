@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.0...v0.5.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **client:** pace deny-export page fetches under the entries.list quota ([#26](https://github.com/shigechika/cloudarmor-mcp/issues/26)) ([9115206](https://github.com/shigechika/cloudarmor-mcp/commit/911520635e781cc4368fd6fa3abb0cf8ded69575))
+
 ## [0.5.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.4.0...v0.5.0) (2026-09-23)
 
 
