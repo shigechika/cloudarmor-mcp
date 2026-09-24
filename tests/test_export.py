@@ -260,7 +260,8 @@ def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypat
     lc._client, lc._ascending, lc._descending, lc.project = FakeGcl(), "asc", "desc", "p"
     monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: slept.append(s))
     assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b"] and calls["n"] == 2
-    assert len(slept) == 2 and slept[1] > 4  # the 429 back-off, then the pacing sleep before page 2
+    # the 429 back-off, then a pacing sleep before page 2 and before the request that finds the end
+    assert len(slept) == 3 and slept[1] > 4 and slept[2] > 4
     lc._client = Always()
     with pytest.raises(CloudArmorError):  # a second quota error is reported, not retried again
         list(lc.raw_entries("f", 10))
