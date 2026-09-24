@@ -11,6 +11,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+# Minimum seconds between two entries.list pages in raw_entries: 60 requests/minute is the default quota.
+PAGE_INTERVAL = 1.2
+
 
 class CloudArmorError(Exception):
     """Raised for configuration or Cloud Logging API errors."""
@@ -179,11 +182,15 @@ class LogClient:
         except Exception as e:
             raise CloudArmorError(f"Cloud Logging query failed: {e}") from e
 
-    def raw_entries(self, filter_str: str, max_entries: int, ascending: bool = False) -> Iterator:
+    def raw_entries(
+        self, filter_str: str, max_entries: int, ascending: bool = False, page_interval: float = PAGE_INTERVAL
+    ) -> Iterator:
         """Yield up to max_entries SDK log entries unchanged (deny-export uses this).
 
         Oldest first when ascending, so a capped export is a contiguous prefix of
-        the window. A quota error (429) before the first entry is retried once.
+        the window. Pages are fetched at most one per page_interval seconds so a
+        big day stays under the entries.list quota (60 requests per minute per
+        project); a quota error (429) before the first entry is retried once.
         """
         for attempt in (1, 2):
             yielded = False
@@ -194,10 +201,21 @@ class LogClient:
                     page_size=min(max_entries, 1000),
                     max_results=max_entries,
                 )
-                for entry in it:
-                    yielded = True
-                    yield entry
-                return
+                pages = it.pages
+                last = 0.0
+                while True:
+                    # pace before advancing: next() is what sends the entries.list request
+                    if last:
+                        wait = page_interval - (time.monotonic() - last)
+                        if wait > 0:
+                            time.sleep(wait)
+                    last = time.monotonic()
+                    page = next(pages, None)
+                    if page is None:
+                        return
+                    for entry in page:
+                        yielded = True
+                        yield entry
             except Exception as e:
                 if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
                     time.sleep(15)
