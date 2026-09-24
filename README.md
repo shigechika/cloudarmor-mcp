@@ -128,7 +128,9 @@ meant for an operator batch on the same host that aggregates the day itself. The
 document ends with `count`, `fetched`, `malformed` and `capped`: when `capped` is
 true the export stopped at `--max-entries` (default 200000; `CLOUDARMOR_MAX_ENTRIES`
 does not apply) and is a prefix of the day, oldest first. Records are streamed, so
-memory does not grow with the day. A day that has not ended yet is refused. Run it
+memory does not grow with the day, and pages are fetched at most one per 1.2 s to stay
+under the Cloud Logging read quota (60 requests per minute), so a day with 200,000 entries
+takes a few minutes. A day that has not ended yet is refused. Run it
 some minutes after local midnight — Cloud Logging entries arrive with a delay — and
 write to a temporary file first: on a query failure the exit code is 1 and stdout may
 hold an unterminated document.

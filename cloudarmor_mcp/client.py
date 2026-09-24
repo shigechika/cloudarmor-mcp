@@ -201,16 +201,21 @@ class LogClient:
                     page_size=min(max_entries, 1000),
                     max_results=max_entries,
                 )
+                pages = it.pages
                 last = 0.0
-                for page in it.pages:
-                    wait = page_interval - (time.monotonic() - last)
-                    if last and wait > 0:
-                        time.sleep(wait)
+                while True:
+                    # pace before advancing: next() is what sends the entries.list request
+                    if last:
+                        wait = page_interval - (time.monotonic() - last)
+                        if wait > 0:
+                            time.sleep(wait)
                     last = time.monotonic()
+                    page = next(pages, None)
+                    if page is None:
+                        return
                     for entry in page:
                         yielded = True
                         yield entry
-                return
             except Exception as e:
                 if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
                     time.sleep(15)
