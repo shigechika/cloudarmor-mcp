@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 # Minimum seconds between two entries.list pages in raw_entries: 60 requests/minute is the default quota.
 PAGE_INTERVAL = 1.2
+PAGE_SIZE = 1000  # entries.list page_size for deny-export
 
 
 class CloudArmorError(Exception):
@@ -191,31 +192,39 @@ class LogClient:
         the window. Pages are fetched at most one per page_interval seconds so a
         big day stays under the entries.list quota (60 requests per minute per
         project); a quota error (429) before the first entry is retried once.
+
+        google-cloud-logging 3.x returns a plain generator: the first
+        entries.list request is sent by list_entries() itself, and the next one
+        by the pull that follows each page_size-th entry. Pacing therefore
+        counts entries rather than walking a pages attribute.
         """
+        page_size = min(max_entries, PAGE_SIZE)
         for attempt in (1, 2):
             yielded = False
             try:
-                it = self._client.list_entries(
-                    filter_=filter_str,
-                    order_by=self._ascending if ascending else self._descending,
-                    page_size=min(max_entries, 1000),
-                    max_results=max_entries,
+                last = time.monotonic()
+                it = iter(
+                    self._client.list_entries(
+                        filter_=filter_str,
+                        order_by=self._ascending if ascending else self._descending,
+                        page_size=page_size,
+                        max_results=max_entries,
+                    )
                 )
-                pages = it.pages
-                last = 0.0
+                n = 0
                 while True:
-                    # pace before advancing: next() is what sends the entries.list request
-                    if last:
+                    if n and n % page_size == 0:
+                        # this pull sends the next entries.list request
                         wait = page_interval - (time.monotonic() - last)
                         if wait > 0:
                             time.sleep(wait)
-                    last = time.monotonic()
-                    page = next(pages, None)
-                    if page is None:
+                        last = time.monotonic()
+                    entry = next(it, None)
+                    if entry is None:
                         return
-                    for entry in page:
-                        yielded = True
-                        yield entry
+                    n += 1
+                    yielded = True
+                    yield entry
             except Exception as e:
                 if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
                     time.sleep(15)

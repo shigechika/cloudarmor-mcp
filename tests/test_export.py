@@ -232,36 +232,68 @@ def test_run_export_rejects_bad_options(kw):
         _run([], **kw)
 
 
-def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypatch):
+def _gcl_like(pages, fetches, fail_first=None):
+    """Mimic google-cloud-logging 3.x: list_entries() sends the first request itself and
+    returns a plain generator (no .pages); each later page is requested by the pull that
+    follows the previous page's last entry."""
+
+    class FakeGcl:
+        calls = 0
+
+        def list_entries(self, **kw):
+            FakeGcl.calls += 1
+            if fail_first and FakeGcl.calls == 1:
+                raise fail_first("quota")
+            fetches.append("req")
+
+            def gen():
+                for i, page in enumerate(pages):
+                    if i:
+                        fetches.append("req")
+                    yield from page
+
+            return gen()
+
+    return FakeGcl()
+
+
+def _lc(gcl):
     from cloudarmor_mcp.client import LogClient
 
+    lc = LogClient.__new__(LogClient)
+    lc._client, lc._ascending, lc._descending, lc.project = gcl, "asc", "desc", "p"
+    return lc
+
+
+def test_raw_entries_paces_every_request_after_the_first_with_a_plain_generator(monkeypatch):
+    fetches = []
+    monkeypatch.setattr("cloudarmor_mcp.client.PAGE_SIZE", 2)
+    monkeypatch.setattr("cloudarmor_mcp.client.time.monotonic", lambda: 0.0)  # no time passes
+    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: fetches.append(f"sleep {s:g}"))
+    lc = _lc(_gcl_like([["a", "b"], ["c", "d"], ["e"]], fetches))
+    assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b", "c", "d", "e"]
+    assert fetches == ["req", "sleep 5", "req", "sleep 5", "req"]
+
+
+def test_raw_entries_stops_at_max_entries(monkeypatch):
+    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: None)
+    lc = _lc(_gcl_like([["a", "b", "c"]], []))
+    assert list(lc.raw_entries("f", 3)) == ["a", "b", "c"]
+
+
+def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypatch):
     class ResourceExhausted(Exception):
         pass
 
-    calls = {"n": 0}
+    slept = []
+    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: slept.append(s))
+    lc = _lc(_gcl_like([["a"], ["b"]], [], fail_first=ResourceExhausted))
+    assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b"]
+    assert slept[0] == 15  # the 429 back-off
 
-    class Pages:
-        def __init__(self, pages):
-            self.pages = iter(pages)
-
-    class FakeGcl:
-        def list_entries(self, **kw):
-            calls["n"] += 1
-            if calls["n"] == 1:
-                raise ResourceExhausted("quota")
-            return Pages([["a"], ["b"]])
-
-    class Always(FakeGcl):
+    class Always:
         def list_entries(self, **kw):
             raise ResourceExhausted("quota")
 
-    slept = []
-    lc = LogClient.__new__(LogClient)
-    lc._client, lc._ascending, lc._descending, lc.project = FakeGcl(), "asc", "desc", "p"
-    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: slept.append(s))
-    assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b"] and calls["n"] == 2
-    # the 429 back-off, then a pacing sleep before page 2 and before the request that finds the end
-    assert len(slept) == 3 and slept[1] > 4 and slept[2] > 4
-    lc._client = Always()
     with pytest.raises(CloudArmorError):  # a second quota error is reported, not retried again
-        list(lc.raw_entries("f", 10))
+        list(_lc(Always()).raw_entries("f", 10))
