@@ -167,6 +167,33 @@ class LogClient:
         self._ascending = gcl.ASCENDING
         self.project = project
 
+    def _list_pages(self, filter_str: str, order_by: str, page_size: int) -> Iterator[list]:
+        """Yield one list of SDK LogEntry objects per entries.list response.
+
+        Mirrors google-cloud-logging's own list_entries (3.x) but keeps the
+        pager's page boundaries. Each yielded list is exactly one request,
+        empty pages included. The filter must carry its own timestamp bound:
+        the SDK's default of "last 24 hours" is not added here.
+        """
+        from google.cloud.logging_v2._gapic import _parse_log_entry
+        from google.cloud.logging_v2._helpers import entry_from_resource
+        from google.cloud.logging_v2.types import ListLogEntriesRequest
+        from google.cloud.logging_v2.types import LogEntry as LogEntryPB
+
+        request = ListLogEntriesRequest(
+            resource_names=[f"projects/{self.project}"],
+            filter=filter_str,
+            order_by=order_by,
+            page_size=page_size,
+        )
+        pager = self._client.logging_api._gapic_api.list_log_entries(request=request)
+        loggers: dict = {}
+        for page in pager.pages:
+            yield [
+                entry_from_resource(_parse_log_entry(LogEntryPB.pb(e)), self._client, loggers=loggers)
+                for e in page.entries
+            ]
+
     def deny_entries(self, filter_str: str, kind: str, max_entries: int) -> Iterator[DenyEntry]:
         """Yield up to max_entries DenyEntry rows for the filter, newest first."""
         try:
@@ -193,38 +220,36 @@ class LogClient:
         big day stays under the entries.list quota (60 requests per minute per
         project); a quota error (429) before the first entry is retried once.
 
-        google-cloud-logging 3.x returns a plain generator: the first
-        entries.list request is sent by list_entries() itself, and the next one
-        by the pull that follows each page_size-th entry. Pacing therefore
-        counts entries rather than walking a pages attribute.
+        Pages are walked one API response at a time (see _list_pages) because
+        the SDK's list_entries() generator hides page boundaries: short or empty
+        pages that still carry a next-page token would otherwise be fetched
+        back to back inside a single pull.
         """
         page_size = min(max_entries, PAGE_SIZE)
+        order_by = self._ascending if ascending else self._descending
         for attempt in (1, 2):
             yielded = False
             try:
-                last = time.monotonic()
-                it = iter(
-                    self._client.list_entries(
-                        filter_=filter_str,
-                        order_by=self._ascending if ascending else self._descending,
-                        page_size=page_size,
-                        max_results=max_entries,
-                    )
-                )
+                pages = self._list_pages(filter_str, order_by, page_size)
                 n = 0
-                while True:
-                    if n and n % page_size == 0:
-                        # this pull sends the next entries.list request
+                last = None
+                while n < max_entries:
+                    if last is not None:
+                        # every pull after the first sends one entries.list request
                         wait = page_interval - (time.monotonic() - last)
                         if wait > 0:
                             time.sleep(wait)
-                        last = time.monotonic()
-                    entry = next(it, None)
-                    if entry is None:
+                    last = time.monotonic()
+                    page = next(pages, None)
+                    if page is None:
                         return
-                    n += 1
-                    yielded = True
-                    yield entry
+                    for entry in page:
+                        if n >= max_entries:
+                            return
+                        n += 1
+                        yielded = True
+                        yield entry
+                return
             except Exception as e:
                 if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
                     time.sleep(15)

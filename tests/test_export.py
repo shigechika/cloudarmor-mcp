@@ -232,53 +232,41 @@ def test_run_export_rejects_bad_options(kw):
         _run([], **kw)
 
 
-def _gcl_like(pages, fetches, fail_first=None):
-    """Mimic google-cloud-logging 3.x: list_entries() sends the first request itself and
-    returns a plain generator (no .pages); each later page is requested by the pull that
-    follows the previous page's last entry."""
-
-    class FakeGcl:
-        calls = 0
-
-        def list_entries(self, **kw):
-            FakeGcl.calls += 1
-            if fail_first and FakeGcl.calls == 1:
-                raise fail_first("quota")
-            fetches.append("req")
-
-            def gen():
-                for i, page in enumerate(pages):
-                    if i:
-                        fetches.append("req")
-                    yield from page
-
-            return gen()
-
-    return FakeGcl()
-
-
-def _lc(gcl):
+def _lc(pages, fetches, fail_first=None):
+    """A LogClient whose _list_pages yields the given pages, one request each (empty pages too)."""
     from cloudarmor_mcp.client import LogClient
 
+    calls = {"n": 0}
+
+    def list_pages(filter_str, order_by, page_size):
+        calls["n"] += 1
+        if fail_first and calls["n"] == 1:
+            raise fail_first("quota")
+        for page in pages:
+            fetches.append("req")
+            yield list(page)
+
     lc = LogClient.__new__(LogClient)
-    lc._client, lc._ascending, lc._descending, lc.project = gcl, "asc", "desc", "p"
+    lc._client, lc._ascending, lc._descending, lc.project = None, "asc", "desc", "p"
+    lc._list_pages = list_pages
     return lc
 
 
-def test_raw_entries_paces_every_request_after_the_first_with_a_plain_generator(monkeypatch):
+def test_raw_entries_paces_every_request_after_the_first_including_short_and_empty_pages(monkeypatch):
     fetches = []
-    monkeypatch.setattr("cloudarmor_mcp.client.PAGE_SIZE", 2)
     monkeypatch.setattr("cloudarmor_mcp.client.time.monotonic", lambda: 0.0)  # no time passes
     monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: fetches.append(f"sleep {s:g}"))
-    lc = _lc(_gcl_like([["a", "b"], ["c", "d"], ["e"]], fetches))
-    assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b", "c", "d", "e"]
-    assert fetches == ["req", "sleep 5", "req", "sleep 5", "req"]
+    lc = _lc([["a"], [], ["b", "c"], ["d"]], fetches)
+    assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b", "c", "d"]
+    assert fetches == ["req", "sleep 5", "req", "sleep 5", "req", "sleep 5", "req", "sleep 5"]
 
 
-def test_raw_entries_stops_at_max_entries(monkeypatch):
-    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: None)
-    lc = _lc(_gcl_like([["a", "b", "c"]], []))
-    assert list(lc.raw_entries("f", 3)) == ["a", "b", "c"]
+def test_raw_entries_stops_at_max_entries_without_another_request(monkeypatch):
+    fetches = []
+    monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: fetches.append("sleep"))
+    lc = _lc([["a", "b"], ["c", "d"]], fetches)
+    assert list(lc.raw_entries("f", 2)) == ["a", "b"]
+    assert fetches == ["req"]
 
 
 def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypatch):
@@ -287,13 +275,11 @@ def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypat
 
     slept = []
     monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: slept.append(s))
-    lc = _lc(_gcl_like([["a"], ["b"]], [], fail_first=ResourceExhausted))
+    lc = _lc([["a"], ["b"]], [], fail_first=ResourceExhausted)
     assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b"]
     assert slept[0] == 15  # the 429 back-off
 
-    class Always:
-        def list_entries(self, **kw):
-            raise ResourceExhausted("quota")
-
+    lc = _lc([], [], fail_first=ResourceExhausted)
+    lc._list_pages = lambda *a: (_ for _ in ()).throw(ResourceExhausted("quota"))
     with pytest.raises(CloudArmorError):  # a second quota error is reported, not retried again
-        list(_lc(Always()).raw_entries("f", 10))
+        list(lc.raw_entries("f", 10))
