@@ -242,9 +242,9 @@ def _lc(pages, fetches, fail_first=None):
         calls["n"] += 1
         if fail_first and calls["n"] == 1:
             raise fail_first("quota")
-        for page in pages:
+        for i, page in enumerate(pages):
             fetches.append("req")
-            yield list(page)
+            yield list(page), i < len(pages) - 1
 
     lc = LogClient.__new__(LogClient)
     lc._client, lc._ascending, lc._descending, lc.project = None, "asc", "desc", "p"
@@ -258,7 +258,8 @@ def test_raw_entries_paces_every_request_after_the_first_including_short_and_emp
     monkeypatch.setattr("cloudarmor_mcp.client.time.sleep", lambda s: fetches.append(f"sleep {s:g}"))
     lc = _lc([["a"], [], ["b", "c"], ["d"]], fetches)
     assert list(lc.raw_entries("f", 10, ascending=True, page_interval=5.0)) == ["a", "b", "c", "d"]
-    assert fetches == ["req", "sleep 5", "req", "sleep 5", "req", "sleep 5", "req", "sleep 5"]
+    # no wait after the last page: it carries no next-page token
+    assert fetches == ["req", "sleep 5", "req", "sleep 5", "req", "sleep 5", "req"]
 
 
 def test_raw_entries_stops_at_max_entries_without_another_request(monkeypatch):
@@ -283,3 +284,20 @@ def test_raw_entries_retries_a_quota_error_once_before_the_first_entry(monkeypat
     lc._list_pages = lambda *a: (_ for _ in ()).throw(ResourceExhausted("quota"))
     with pytest.raises(CloudArmorError):  # a second quota error is reported, not retried again
         list(lc.raw_entries("f", 10))
+
+
+def test_list_pages_falls_back_to_the_sdk_generator_on_the_http_transport():
+    from cloudarmor_mcp.client import LogClient
+
+    class Api:  # JSONLoggingAPI has no _gapic_api
+        pass
+
+    class Client:
+        logging_api = Api()
+
+        def list_entries(self, **kw):
+            return iter(["a", "b", "c", "d", "e"])
+
+    lc = LogClient.__new__(LogClient)
+    lc._client, lc.project = Client(), "p"
+    assert list(lc._list_pages("f", "asc", 2)) == [(["a", "b"], True), (["c", "d"], True), (["e"], False)]

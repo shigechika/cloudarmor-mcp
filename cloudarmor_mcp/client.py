@@ -5,6 +5,7 @@ filter building and aggregation without the dependency installed or any
 network access.
 """
 
+import itertools
 import os
 import time
 from collections.abc import Iterator
@@ -167,14 +168,29 @@ class LogClient:
         self._ascending = gcl.ASCENDING
         self.project = project
 
-    def _list_pages(self, filter_str: str, order_by: str, page_size: int) -> Iterator[list]:
-        """Yield one list of SDK LogEntry objects per entries.list response.
+    def _list_pages(self, filter_str: str, order_by: str, page_size: int) -> Iterator[tuple[list, bool]]:
+        """Yield (SDK LogEntry objects, more pages follow) per entries.list response.
 
         Mirrors google-cloud-logging's own list_entries (3.x) but keeps the
-        pager's page boundaries. Each yielded list is exactly one request,
+        gRPC pager's page boundaries, so each item is exactly one request,
         empty pages included. The filter must carry its own timestamp bound:
-        the SDK's default of "last 24 hours" is not added here.
+        the SDK's default of "last 24 hours" is not added here. With the HTTP
+        transport (GOOGLE_CLOUD_DISABLE_GRPC) there is no pager, so the SDK
+        generator is cut into page_size chunks instead (pacing is then best
+        effort: short pages are not visible).
         """
+        api = self._client.logging_api
+        gapic = getattr(api, "_gapic_api", None)
+        if gapic is None:
+            it = iter(
+                self._client.list_entries(filter_=filter_str, order_by=order_by, page_size=page_size, max_results=None)
+            )
+            while True:
+                chunk = list(itertools.islice(it, page_size))
+                yield chunk, len(chunk) == page_size
+                if len(chunk) < page_size:
+                    return
+
         from google.cloud.logging_v2._gapic import _parse_log_entry
         from google.cloud.logging_v2._helpers import entry_from_resource
         from google.cloud.logging_v2.types import ListLogEntriesRequest
@@ -186,13 +202,14 @@ class LogClient:
             order_by=order_by,
             page_size=page_size,
         )
-        pager = self._client.logging_api._gapic_api.list_log_entries(request=request)
+        pager = gapic.list_log_entries(request=request)
         loggers: dict = {}
         for page in pager.pages:
-            yield [
+            entries = [
                 entry_from_resource(_parse_log_entry(LogEntryPB.pb(e)), self._client, loggers=loggers)
                 for e in page.entries
             ]
+            yield entries, bool(page.next_page_token)
 
     def deny_entries(self, filter_str: str, kind: str, max_entries: int) -> Iterator[DenyEntry]:
         """Yield up to max_entries DenyEntry rows for the filter, newest first."""
@@ -240,15 +257,18 @@ class LogClient:
                         if wait > 0:
                             time.sleep(wait)
                     last = time.monotonic()
-                    page = next(pages, None)
-                    if page is None:
+                    item = next(pages, None)
+                    if item is None:
                         return
+                    page, more = item
                     for entry in page:
                         if n >= max_entries:
                             return
                         n += 1
                         yielded = True
                         yield entry
+                    if not more:
+                        return
                 return
             except Exception as e:
                 if attempt == 1 and not yielded and type(e).__name__ in ("ResourceExhausted", "TooManyRequests"):
