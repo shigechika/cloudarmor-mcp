@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.1...v0.5.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* **client:** deny-export fails on the real API; pace entries.list by actual pages ([#28](https://github.com/shigechika/cloudarmor-mcp/issues/28)) ([77dc16a](https://github.com/shigechika/cloudarmor-mcp/commit/77dc16a36bd6856b2407e6bd67fb01de3731b0d9))
+
 ## [0.5.1](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.0...v0.5.1) (2026-09-24)
 
 
