@@ -4,12 +4,13 @@ import configparser
 import os
 from collections import Counter
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
+from cloudarmor_mcp import __version__
 from cloudarmor_mcp.client import CloudArmorError, Config, LogClient, build_filter
 from cloudarmor_mcp.rules import Rules, load_rules
 
-mcp = FastMCP("cloudarmor-mcp")
+mcp = MCPServer("cloudarmor-mcp", version=__version__)
 
 # Hard cap on entries fetched per query (CLOUDARMOR_MAX_ENTRIES overrides).
 # When the cap is hit the report says ">= N (capped)" instead of pretending
@@ -86,7 +87,6 @@ def health_check() -> dict:
     "degraded" when config loads but the probe fails, "error" when the
     config itself is unusable.
     """
-    from cloudarmor_mcp import __version__
 
     result = {
         "status": "error",

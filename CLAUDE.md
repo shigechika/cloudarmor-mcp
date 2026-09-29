@@ -65,7 +65,7 @@ when reasoning about that contract.
 
 ## Architecture
 
-- `cloudarmor_mcp/server.py` — the FastMCP server and all five tools:
+- `cloudarmor_mcp/server.py` — the MCPServer server and all five tools:
   `health_check`, `enforce_denies`, `preview_denies`,
   `home_region_denies`, `daily_brief`. Also holds the module-level
   `_CLIENT` singleton (`_client()` / `reset_client()`), the shared
