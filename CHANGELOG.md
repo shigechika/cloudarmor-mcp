@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.2...v0.6.0) (2026-09-29)
+
+
+### Features
+
+* require mcp 2.x (MCPServer) and drop 1.x support ([#30](https://github.com/shigechika/cloudarmor-mcp/issues/30)) ([c30f3b0](https://github.com/shigechika/cloudarmor-mcp/commit/c30f3b03d68133a8d7f2752e3cfffed5d09f3a96))
+
 ## [0.5.2](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.1...v0.5.2) (2026-09-25)
 
 
