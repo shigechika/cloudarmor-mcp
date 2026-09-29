@@ -1,16 +1,65 @@
 """Cloud Armor WAF patrol MCP Server — tools."""
 
 import configparser
+import functools
+import inspect
 import os
 from collections import Counter
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.shared.exceptions import MCPError
 
 from cloudarmor_mcp import __version__
 from cloudarmor_mcp.client import CloudArmorError, Config, LogClient, build_filter
 from cloudarmor_mcp.rules import Rules, load_rules
 
-mcp = MCPServer("cloudarmor-mcp", version=__version__)
+
+def _expose_errors(fn):
+    """Wrap a tool so any exception reaches the model as a ToolError with its message.
+
+    mcp 1.x returned the exception text for every failing tool. mcp 2.x hides it
+    (the model sees only "Error executing tool <name>") unless a ToolError is raised.
+    """
+    if inspect.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def wrapper(*args, **kwargs):
+            try:
+                return await fn(*args, **kwargs)
+            except (ToolError, MCPError):
+                raise
+            except Exception as exc:
+                raise ToolError(str(exc) or type(exc).__name__) from exc
+
+    else:
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except (ToolError, MCPError):
+                raise
+            except Exception as exc:
+                raise ToolError(str(exc) or type(exc).__name__) from exc
+
+    return wrapper
+
+
+class _Server(MCPServer):
+    """MCPServer whose tools report their exception messages (see _expose_errors)."""
+
+    def tool(self, *args, **kwargs):
+        register = super().tool(*args, **kwargs)
+
+        def decorator(fn):
+            register(_expose_errors(fn))
+            return fn
+
+        return decorator
+
+
+mcp = _Server("cloudarmor-mcp", version=__version__)
 
 # Hard cap on entries fetched per query (CLOUDARMOR_MAX_ENTRIES overrides).
 # When the cap is hit the report says ">= N (capped)" instead of pretending
