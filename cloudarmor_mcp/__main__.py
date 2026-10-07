@@ -10,7 +10,17 @@ from cloudarmor_mcp import __version__
 
 
 def _deny_export(argv: list[str]) -> int:
-    """`cloudarmor-mcp deny-export ...`: one day of DENY entries as JSON on stdout.
+    """`cloudarmor-mcp deny-export ...`: one day of DENY entries as JSON on stdout."""
+    return _export_cli("deny-export", argv)
+
+
+def _traffic_export(argv: list[str]) -> int:
+    """`cloudarmor-mcp traffic-export ...`: a sampled day of all requests as JSON on stdout."""
+    return _export_cli("traffic-export", argv)
+
+
+def _export_cli(name: str, argv: list[str]) -> int:
+    """Shared body of the two export subcommands.
 
     Exit 0 exported, 1 the Cloud Logging query failed (stdout may then hold an
     unterminated document) or the reader closed the pipe, 2 usage or
@@ -20,13 +30,26 @@ def _deny_export(argv: list[str]) -> int:
     from cloudarmor_mcp import export
     from cloudarmor_mcp.client import CloudArmorError, Config
 
+    traffic = name == "traffic-export"
     parser = argparse.ArgumentParser(
-        prog="cloudarmor-mcp deny-export",
-        description="Export one calendar day of Cloud Armor DENY log entries as JSON (per entry, for batch use)",
+        prog=f"cloudarmor-mcp {name}",
+        description=(
+            "Export a sampled calendar day of all load-balancer requests as JSON (per entry, for batch use)"
+            if traffic
+            else "Export one calendar day of Cloud Armor DENY log entries as JSON (per entry, for batch use)"
+        ),
     )
     parser.add_argument("--date", required=True, help="calendar day, YYYY-MM-DD, in --tz; must have ended")
     parser.add_argument("--tz", default="UTC", help="IANA time zone of --date (default UTC)")
-    parser.add_argument("--kind", choices=export.KINDS, default="both", help="which DENY outcome to export")
+    if traffic:
+        parser.add_argument(
+            "--sample",
+            type=float,
+            default=export.DEFAULT_SAMPLE,
+            help=f"fraction of requests to keep, via sample(insertId, ...) (default {export.DEFAULT_SAMPLE})",
+        )
+    else:
+        parser.add_argument("--kind", choices=export.KINDS, default="both", help="which DENY outcome to export")
     parser.add_argument(
         "--max-entries",
         type=int,
@@ -40,7 +63,7 @@ def _deny_export(argv: list[str]) -> int:
     try:
         cfg = Config.from_env()
     except CloudArmorError as e:
-        print(f"deny-export: {e}", file=sys.stderr)
+        print(f"{name}: {e}", file=sys.stderr)
         return 2
     backends = cfg.backend_services
     if args.backend is not None:
@@ -49,48 +72,55 @@ def _deny_export(argv: list[str]) -> int:
         export.day_window(args.date, args.tz)
         if args.max_entries < 1:
             raise export.ExportConfigError("--max-entries must be at least 1")
+        if traffic:
+            export.check_sample(args.sample)
     except export.ExportConfigError as e:
-        print(f"deny-export: {e}", file=sys.stderr)
+        print(f"{name}: {e}", file=sys.stderr)
         return 2
     try:
         client = export.LogClient(cfg.project)
     except CloudArmorError as e:  # missing library or credentials: configuration, not a query failure
-        print(f"deny-export: {e}", file=sys.stderr)
+        print(f"{name}: {e}", file=sys.stderr)
         return 2
     out = export.utf8_stdout()
+    common = dict(
+        project=cfg.project,
+        backend_services=backends,
+        date=args.date,
+        tz=args.tz,
+        max_entries=args.max_entries,
+        out=out,
+        client=client,
+    )
     try:
-        n = export.run_export(
-            project=cfg.project,
-            backend_services=backends,
-            date=args.date,
-            tz=args.tz,
-            kind=args.kind,
-            max_entries=args.max_entries,
-            out=out,
-            client=client,
-        )
+        if traffic:
+            n = export.run_traffic_export(sample=args.sample, **common)
+        else:
+            n = export.run_export(kind=args.kind, **common)
     except export.ExportConfigError as e:
-        print(f"deny-export: {e}", file=sys.stderr)
+        print(f"{name}: {e}", file=sys.stderr)
         return 2
     except CloudArmorError as e:
-        print(f"deny-export: failed: {e}", file=sys.stderr)
+        print(f"{name}: failed: {e}", file=sys.stderr)
         return 1
     except BrokenPipeError:  # the reader went away (e.g. `| head`); nothing left to write
         with contextlib.suppress(OSError):
             os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
-        print("deny-export: stdout closed by the reader", file=sys.stderr)
+        print(f"{name}: stdout closed by the reader", file=sys.stderr)
         return 1
     finally:
         with contextlib.suppress(BrokenPipeError, OSError, ValueError):
             out.flush()
             out.detach()
-    print(f"deny-export: {n} entries for {args.date} ({args.tz})", file=sys.stderr)
+    print(f"{name}: {n} entries for {args.date} ({args.tz})", file=sys.stderr)
     return 0
 
 
 def main():
     if sys.argv[1:2] == ["deny-export"]:
         sys.exit(_deny_export(sys.argv[2:]))
+    if sys.argv[1:2] == ["traffic-export"]:
+        sys.exit(_traffic_export(sys.argv[2:]))
     parser = argparse.ArgumentParser(
         description="Google Cloud Armor WAF log patrol MCP Server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -107,6 +137,8 @@ Optional environment variables:
 Subcommands:
   deny-export --date YYYY-MM-DD [--tz ZONE] [--kind both|enforced|preview]
                                Export one day of DENY entries as JSON (see deny-export --help)
+  traffic-export --date YYYY-MM-DD [--tz ZONE] [--sample RATE]
+                               Export a sampled day of all requests as JSON (see traffic-export --help)
 """,
     )
     parser.add_argument("--version", action="store_true", help="Print version and exit")

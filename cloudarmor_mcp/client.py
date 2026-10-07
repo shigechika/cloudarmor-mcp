@@ -72,13 +72,20 @@ def _filter_parts(kind: str, backend_services: list[str], region_code: str | Non
         raise CloudArmorError(f"unknown filter kind: {kind!r}")
     if region_code:
         parts.append("jsonPayload.securityPolicyRequestData.remoteIpInfo.regionCode=" + _quote(region_code))
-    if backend_services:
-        if len(backend_services) == 1:
-            parts.append(f"resource.labels.backend_service_name={_quote(backend_services[0])}")
-        else:
-            joined = " OR ".join(_quote(b) for b in backend_services)
-            parts.append(f"resource.labels.backend_service_name=({joined})")
+    backend = _backend_clause(backend_services)
+    if backend:
+        parts.append(backend)
     return parts
+
+
+def _backend_clause(backend_services: list[str]) -> str | None:
+    """`resource.labels.backend_service_name=...` for one or more services, or None for all."""
+    if not backend_services:
+        return None
+    if len(backend_services) == 1:
+        return f"resource.labels.backend_service_name={_quote(backend_services[0])}"
+    joined = " OR ".join(_quote(b) for b in backend_services)
+    return f"resource.labels.backend_service_name=({joined})"
 
 
 def build_filter(
@@ -114,6 +121,32 @@ def build_window_filter(kind: str, backend_services: list[str], start: datetime,
     parts = _filter_parts(kind, backend_services)
     parts.append(f'timestamp >= "{_rfc3339(start)}"')
     parts.append(f'timestamp < "{_rfc3339(end)}"')
+    return " ".join(parts)
+
+
+MIN_SAMPLE = 0.000001
+
+
+def build_sample_filter(backend_services: list[str], start: datetime, end: datetime, rate: float) -> str:
+    """Filter for every load-balancer request in [start, end), thinned by sample(insertId, rate).
+
+    Unlike the DENY filters this matches allowed and cache-served requests too.
+    sample() hashes the insertId, so the subset is spread evenly over the
+    window and the same rate always selects the same entries. A rate of 1
+    omits the sample() clause.
+    """
+    if end <= start:
+        raise CloudArmorError("window end must be after its start")
+    if not isinstance(rate, (int, float)) or not MIN_SAMPLE <= rate <= 1:
+        raise CloudArmorError(f"sample rate must be between {MIN_SAMPLE:f} and 1, got {rate!r}")
+    parts = ['resource.type="http_load_balancer"']
+    backend = _backend_clause(backend_services)
+    if backend:
+        parts.append(backend)
+    parts.append(f'timestamp >= "{_rfc3339(start)}"')
+    parts.append(f'timestamp < "{_rfc3339(end)}"')
+    if rate < 1:
+        parts.append(f"sample(insertId, {format(rate, '.6f').rstrip('0')})")
     return " ".join(parts)
 
 

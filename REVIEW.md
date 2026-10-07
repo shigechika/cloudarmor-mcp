@@ -43,7 +43,7 @@ reviewer also receives.
   belong solely to `home_region_denies` and its `daily_brief` section,
   where inspecting them is the point — including in exception messages
   a caller might log. The single exception is `cloudarmor_mcp/export.py`
-  (`deny-export`), which writes per-entry records — IP, host, path,
+  (`deny-export` and `traffic-export`), which writes per-entry records — IP, host, path,
   User-Agent — to stdout for an operator batch on the same host. Even
   there, query-string contents, cookies and headers other than
   User-Agent are blocking; the MCP tools and `--brief` stay

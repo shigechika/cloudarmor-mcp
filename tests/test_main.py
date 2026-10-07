@@ -116,3 +116,32 @@ def test_deny_export_bad_input_wins_over_client_failure(monkeypatch, capsysbinar
 
     rc = _run(monkeypatch, ["deny-export", "--date", "2026-9-3"], factory=boom)
     assert rc == 2 and capsysbinary.readouterr().out == b""
+
+
+def test_traffic_export_ok_uses_the_default_rate(monkeypatch, capsysbinary):
+    rc = _run(monkeypatch, ["traffic-export", "--date", "2020-01-01", "--tz", "Asia/Tokyo"])
+    doc = json.loads(capsysbinary.readouterr().out.decode("utf-8"))
+    assert rc == 0 and doc["schema"] == export.TRAFFIC_SCHEMA and doc["sample"] == export.DEFAULT_SAMPLE
+    assert doc["filter"].endswith("sample(insertId, 0.01)")
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["traffic-export", "--date", "2020-01-01", "--sample", "0"],
+        ["traffic-export", "--date", "2020-01-01", "--sample", "1.5"],
+        ["traffic-export", "--date", "2020-01-01", "--sample", "x"],
+        ["traffic-export", "--date", "2020-01-01", "--kind", "both"],
+        ["traffic-export", "--date", "2099-01-01"],
+    ],
+)
+def test_traffic_export_bad_input_exits_2(monkeypatch, capsysbinary, argv):
+    rc = _run(monkeypatch, argv)
+    assert rc == 2 and capsysbinary.readouterr().out == b""
+
+
+def test_traffic_export_missing_project_and_query_failure(monkeypatch, capsysbinary):
+    assert _run(monkeypatch, ["traffic-export", "--date", "2020-01-01"], env=False) == 2
+    assert capsysbinary.readouterr().out == b""
+    rc = _run(monkeypatch, ["traffic-export", "--date", "2020-01-01"], client=_Client(fail=CloudArmorError("quota")))
+    assert rc == 1 and capsysbinary.readouterr().out == b""

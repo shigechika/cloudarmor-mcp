@@ -64,6 +64,8 @@ cloudarmor-mcp --check    # verify config + API access
 cloudarmor-mcp --brief    # print daily_brief to stdout
 cloudarmor-mcp deny-export --date YYYY-MM-DD [--tz ZONE] [--kind both|enforced|preview] [--max-entries N] [--backend a,b]
                           # one day of DENY entries as JSON (see the README)
+cloudarmor-mcp traffic-export --date YYYY-MM-DD [--tz ZONE] [--sample RATE] [--max-entries N] [--backend a,b]
+                           # a sampled day of all requests as JSON (see the README)
 ```
 
 Exit codes:
@@ -73,6 +75,7 @@ Exit codes:
 | `--check` | healthy | missing `CLOUDARMOR_PROJECT` | degraded (probe failed) |
 | `--brief` | every section rendered | at least one section's query failed | — |
 | `deny-export` | exported | the Cloud Logging query failed (stdout may hold an unterminated document), or the reader closed stdout | usage or configuration error, including an unset `CLOUDARMOR_PROJECT`, a client that cannot be created (credentials) and a day that has not ended |
+| `traffic-export` | as `deny-export` | as `deny-export` | as `deny-export`, plus a `--sample` outside 0.000001–1 |
 
 `--brief` is the convenient form for cron jobs and smoke tests: the non-zero
 exit distinguishes "the WAF was quiet" from "we could not read the logs",
@@ -92,6 +95,18 @@ which a text report alone does not.
 | `count`, `fetched`, `malformed`, `capped` | records written, entries read (at most `max_entries`), entries that could not be turned into a record, and whether the cap stopped the export |
 | `filter` | the Cloud Logging filter that was used |
 
+### `traffic-export` document
+
+The same layout and record fields as `deny-export`, with these differences:
+
+| Field | Meaning |
+|---|---|
+| `schema` | `cloudarmor-mcp/traffic-export/1` |
+| `sample` | the rate passed to `sample(insertId, ...)`; replaces `kind` |
+| `entries[]` | every load-balancer request kept by the sample — allowed, denied and cache-served |
+| `entries[].cache_hit` | `true` when the response came from the CDN cache (also present in `deny-export` records, always `false` there in practice) |
+| `entries[].enforced` | `null` for requests Cloud Armor did not evaluate, such as cache hits; `region` and `asn` are `null` for those too |
+
 ## Log filters
 
 For reference, the Cloud Logging filters the server builds:
@@ -107,3 +122,7 @@ timestamp >= "<RFC3339 UTC>"
 Preview queries substitute
 `jsonPayload.previewSecurityPolicy.configuredAction="DENY"` for the outcome
 line. Entries are fetched newest-first.
+
+`traffic-export` has no outcome line: after the day's window
+(`timestamp >=` and `timestamp <`) it appends `sample(insertId, RATE)`, omitted
+when RATE is 1. Its entries are fetched oldest-first.
