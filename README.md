@@ -123,7 +123,7 @@ dropped — only its length is kept), status, User-Agent (200 chars) and backend
 query, so a request that matched a preview rule *and* was denied appears once with
 both sections filled. `--backend a,b` overrides `CLOUDARMOR_BACKEND_SERVICES`.
 
-This is the only output of the package that contains per-request log data; it is
+This and `traffic-export` (below) are the only outputs of the package that contain per-request log data; it is
 meant for an operator batch on the same host that aggregates the day itself. The
 document ends with `count`, `fetched`, `malformed` and `capped`: when `capped` is
 true the export stopped at `--max-entries` (default 200000; `CLOUDARMOR_MAX_ENTRIES`
@@ -134,6 +134,27 @@ takes a few minutes. A day that has not ended yet is refused. Run it
 some minutes after local midnight — Cloud Logging entries arrive with a delay — and
 write to a temporary file first: on a query failure the exit code is 1 and stdout may
 hold an unterminated document.
+
+## Exporting a sampled day of all requests (batch)
+
+```bash
+cloudarmor-mcp traffic-export --date 2026-09-22 --tz Asia/Tokyo --sample 0.01 > out.tmp && mv out.tmp 2026-09-22.json
+```
+
+Same document layout and record fields as `deny-export`, but for **every
+load-balancer request** of the day — allowed, denied and served from the CDN cache —
+thinned by Cloud Logging's `sample(insertId, RATE)` (`--sample`, default 0.01).
+The sample is a hash of each entry's `insertId`, so it is spread evenly over the day
+and the same rate selects the same entries on every run; scale counts by
+`1 / sample` to estimate the day — but not when `capped` is true: entries are read
+oldest first, so a capped export covers only the early part of the day (lower
+`--sample` or raise `--max-entries` instead). Each record adds `cache_hit`. When no
+backend security policy evaluated a request (a CDN cache hit, for example) it has
+`enforced: null` and no region code or ASN; use `cache_hit`, not `enforced`, to tell
+cache hits apart.
+The header carries `sample` instead of `kind`. Use it to see who visits — browsers,
+crawlers, AI agents — which the DENY logs cannot show. The per-request caveats of
+`deny-export` apply: the records include legitimate visitors' addresses.
 
 ## Reading the report
 

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from cloudarmor_mcp import export
-from cloudarmor_mcp.client import CloudArmorError, build_window_filter
+from cloudarmor_mcp.client import CloudArmorError, build_sample_filter, build_window_filter
 
 NOW = datetime(2026, 9, 24, 3, 0, 0, tzinfo=timezone.utc)
 Resource = namedtuple("Resource", "labels")
@@ -301,3 +301,106 @@ def test_list_pages_falls_back_to_the_sdk_generator_on_the_http_transport():
     lc = LogClient.__new__(LogClient)
     lc._client, lc.project = Client(), "p"
     assert list(lc._list_pages("f", "asc", 2)) == [(["a", "b"], True), (["c", "d"], True), (["e"], False)]
+
+
+# --- traffic-export -----------------------------------------------------------
+
+
+def _allowed(cache_hit=False, insert_id="t1"):
+    payload = (
+        {}
+        if cache_hit
+        else {
+            "enforcedSecurityPolicy": {"name": "example-policy", "priority": 2147483647.0, "outcome": "ACCEPT"},
+            "securityPolicyRequestData": {"remoteIpInfo": {"regionCode": "JP", "asn": 64496.0}},
+        }
+    )
+    http = {
+        "requestMethod": "GET",
+        "requestUrl": "https://www.example.org/",
+        "remoteIp": "2001:db8::7",
+        "status": 200,
+        "userAgent": "Mozilla/5.0",
+        "cacheHit": cache_hit,
+    }
+    return FakeEntry(payload, http, ts=datetime(2026, 9, 23, 1, 2, 3, tzinfo=timezone.utc), insert_id=insert_id)
+
+
+def test_sample_filter_matches_every_request_and_thins_by_insert_id():
+    start, end = export.day_window("2026-09-23", "Asia/Tokyo", now=NOW)
+    f = build_sample_filter(["a"], start, end, 0.01)
+    assert f.startswith('resource.type="http_load_balancer" ')
+    assert "DENY" not in f and "enforcedSecurityPolicy" not in f
+    assert 'backend_service_name="a"' in f and 'timestamp < "2026-09-23T15:00:00Z"' in f
+    assert f.endswith("sample(insertId, 0.01)")
+    assert build_sample_filter([], start, end, 0.000001).endswith("sample(insertId, 0.000001)")  # no exponent
+    assert build_sample_filter([], start, end, 0.0000014).endswith("sample(insertId, 0.0000014)")  # not rounded
+    assert build_sample_filter([], start, end, 0.1).endswith("sample(insertId, 0.1)")
+    assert build_sample_filter([], start, end, 0.3333333333333333).endswith("sample(insertId, 0.3333333333333333)")
+    assert build_sample_filter([], start, end, 0.00000123456789012345).endswith(
+        "sample(insertId, 0.00000123456789012345)"
+    )
+    assert "sample(" not in build_sample_filter([], start, end, 1)
+
+
+@pytest.mark.parametrize("rate", [0, -0.5, 1.5, 0.0000001, "0.1", float("nan"), True])
+def test_sample_filter_rejects_bad_rates(rate):
+    start, end = export.day_window("2026-09-23", "UTC", now=NOW)
+    with pytest.raises(CloudArmorError):
+        build_sample_filter([], start, end, rate)
+
+
+def test_record_cache_hit_is_a_boolean():
+    assert export.entry_to_record(_allowed(cache_hit=True))["cache_hit"] is True
+    assert export.entry_to_record(_allowed())["cache_hit"] is False
+    assert export.entry_to_record(_deny())["cache_hit"] is False  # absent field
+    assert export.entry_to_record(FakeEntry(None, None))["cache_hit"] is False
+
+
+def test_traffic_export_document_keeps_cache_hits_and_records_the_rate():
+    out = io.StringIO()
+    fake = FakeClient([_allowed(insert_id="a"), _allowed(cache_hit=True, insert_id="b"), _deny(insert_id="c")])
+    n = export.run_traffic_export(
+        project="example-prod",
+        backend_services=["web-backend"],
+        date="2026-09-23",
+        tz="Asia/Tokyo",
+        sample=0.05,
+        max_entries=100,
+        out=out,
+        client_factory=lambda p: fake,
+        now=NOW,
+    )
+    doc = json.loads(out.getvalue())
+    assert n == 3 and doc["schema"] == export.TRAFFIC_SCHEMA and doc["sample"] == 0.05 and "kind" not in doc
+    assert [r["id"] for r in doc["entries"]] == ["a", "b", "c"]
+    assert doc["entries"][1]["cache_hit"] is True and doc["entries"][1]["enforced"] is None
+    assert doc["entries"][2]["enforced"]["outcome"] == "DENY"
+    assert doc["filter"].endswith("sample(insertId, 0.05)") and fake.calls[0][1:] == (101, True)
+
+
+@pytest.mark.parametrize(
+    "kw", [{"sample": 0}, {"sample": 2}, {"sample": True}, {"max_entries": 0}, {"date": "2026-09-24"}]
+)
+def test_traffic_export_rejects_bad_options_before_querying(kw):
+    fake = FakeClient([])
+    args = dict(
+        project="p",
+        backend_services=[],
+        date="2026-09-23",
+        tz="UTC",
+        sample=0.01,
+        max_entries=10,
+        out=io.StringIO(),
+        client_factory=lambda p: fake,
+        now=NOW,
+    )
+    args.update(kw)
+    with pytest.raises(export.ExportConfigError):
+        export.run_traffic_export(**args)
+    assert fake.calls == []
+
+
+def test_deny_export_header_is_unchanged_apart_from_key_order():
+    _, doc, _ = _run([_deny()])
+    assert doc["schema"] == export.EXPORT_SCHEMA and doc["kind"] == "both" and "sample" not in doc

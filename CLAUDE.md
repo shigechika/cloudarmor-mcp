@@ -49,8 +49,9 @@ exits 1 on its own. So:
 | `--check` | healthy | `CLOUDARMOR_PROJECT` unset | degraded (probe failed) |
 | `--brief` | every section rendered | `CLOUDARMOR_PROJECT` unset, **or** any section's query failed | — |
 | `deny-export` | exported | Cloud Logging query failed, or the reader closed stdout | usage/config error, **including** `CLOUDARMOR_PROJECT` unset, a client that cannot be created (credentials) and a day that has not ended |
+| `traffic-export` | exported | as `deny-export` | as `deny-export`, plus a `--sample` outside 0.000001–1 |
 
-`deny-export` is dispatched on `sys.argv[1]` before the flag parser and checks
+`deny-export` and `traffic-export` share `_export_cli()`. Both are dispatched on `sys.argv[1]` before the flag parser and check
 `CLOUDARMOR_PROJECT` inside the subcommand, exiting 2 like the sibling batch
 CLIs (`keycloak-mcp spray-report`, `gwsadm-mcp dmarc-reports`); the flags keep
 their historical 1.
@@ -76,12 +77,14 @@ when reasoning about that contract.
 - `cloudarmor_mcp/rules.py` — `load_rules()`, the optional
   `CLOUDARMOR_RULES_INI` parser producing labels and
   `known_normal_priorities`.
-- `cloudarmor_mcp/export.py` — the `deny-export` subcommand: fixed-day
-  window (`day_window`), per-entry flattening (`entry_to_record`) and the
-  streaming JSON writer (`run_export`). The one place that emits
+- `cloudarmor_mcp/export.py` — the `deny-export` and `traffic-export`
+  subcommands: fixed-day window (`day_window`), per-entry flattening
+  (`entry_to_record`) and the streaming JSON writer (`_write`, behind
+  `run_export` and `run_traffic_export`). The one place that emits
   per-request log data (see REVIEW.md).
 - `cloudarmor_mcp/__main__.py` — console script (`cloudarmor-mcp`),
-  `--check`, `--brief` and the `deny-export` dispatch.
+  `--check`, `--brief` and the `deny-export` / `traffic-export` dispatch
+  (both through `_export_cli()`).
 - `scripts/smoke_harness.py` — a **verbatim shared copy** used by
   sibling MCP servers and drift-checked across repositories. Changes
   belong upstream, not here.
