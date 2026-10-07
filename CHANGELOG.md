@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.6.0...v0.7.0) (2026-10-07)
+
+
+### Features
+
+* add traffic-export, a sampled day of all load-balancer requests ([#33](https://github.com/shigechika/cloudarmor-mcp/issues/33)) ([df85cc9](https://github.com/shigechika/cloudarmor-mcp/commit/df85cc939733c7c529e704ac31ac5cc847635af2))
+
 ## [0.6.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.5.2...v0.6.0) (2026-09-29)
 
 
