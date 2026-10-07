@@ -127,6 +127,16 @@ def build_window_filter(kind: str, backend_services: list[str], start: datetime,
 MIN_SAMPLE = 0.000001
 
 
+def _format_rate(rate: float) -> str:
+    """The rate as a plain decimal (no exponent) with every significant digit kept.
+
+    The export header records the float it was given, so the filter must not
+    round it: a rate written as 0.000001 but recorded as 0.0000014 would skew
+    every `1 / sample` estimate.
+    """
+    return f"{rate:.15f}".rstrip("0").rstrip(".") or "0"
+
+
 def build_sample_filter(backend_services: list[str], start: datetime, end: datetime, rate: float) -> str:
     """Filter for every load-balancer request in [start, end), thinned by sample(insertId, rate).
 
@@ -146,7 +156,7 @@ def build_sample_filter(backend_services: list[str], start: datetime, end: datet
     parts.append(f'timestamp >= "{_rfc3339(start)}"')
     parts.append(f'timestamp < "{_rfc3339(end)}"')
     if rate < 1:
-        parts.append(f"sample(insertId, {format(rate, '.6f').rstrip('0')})")
+        parts.append(f"sample(insertId, {_format_rate(rate)})")
     return " ".join(parts)
 
 

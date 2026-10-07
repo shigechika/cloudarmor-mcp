@@ -334,6 +334,8 @@ def test_sample_filter_matches_every_request_and_thins_by_insert_id():
     assert 'backend_service_name="a"' in f and 'timestamp < "2026-09-23T15:00:00Z"' in f
     assert f.endswith("sample(insertId, 0.01)")
     assert build_sample_filter([], start, end, 0.000001).endswith("sample(insertId, 0.000001)")  # no exponent
+    assert build_sample_filter([], start, end, 0.0000014).endswith("sample(insertId, 0.0000014)")  # not rounded
+    assert build_sample_filter([], start, end, 0.1).endswith("sample(insertId, 0.1)")
     assert "sample(" not in build_sample_filter([], start, end, 1)
 
 
