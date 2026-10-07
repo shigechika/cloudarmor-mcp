@@ -146,8 +146,12 @@ load-balancer request** of the day — allowed, denied and served from the CDN c
 thinned by Cloud Logging's `sample(insertId, RATE)` (`--sample`, default 0.01).
 The sample is a hash of each entry's `insertId`, so it is spread evenly over the day
 and the same rate selects the same entries on every run; scale counts by
-`1 / sample` to estimate the day. Each record adds `cache_hit`. Requests that Cloud
-Armor did not evaluate (cache hits) have `enforced: null` and no region code or ASN.
+`1 / sample` to estimate the day — but not when `capped` is true: entries are read
+oldest first, so a capped export covers only the early part of the day (lower
+`--sample` or raise `--max-entries` instead). Each record adds `cache_hit`. When no
+backend security policy evaluated a request (a CDN cache hit, for example) it has
+`enforced: null` and no region code or ASN; use `cache_hit`, not `enforced`, to tell
+cache hits apart.
 The header carries `sample` instead of `kind`. Use it to see who visits — browsers,
 crawlers, AI agents — which the DENY logs cannot show. The per-request caveats of
 `deny-export` apply: the records include legitimate visitors' addresses.

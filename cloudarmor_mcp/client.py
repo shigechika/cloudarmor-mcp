@@ -127,14 +127,26 @@ def build_window_filter(kind: str, backend_services: list[str], start: datetime,
 MIN_SAMPLE = 0.000001
 
 
-def _format_rate(rate: float) -> str:
-    """The rate as a plain decimal (no exponent) with every significant digit kept.
+def validate_sample(rate) -> float:
+    """Return rate if it is a number within [MIN_SAMPLE, 1]; raise CloudArmorError otherwise.
 
-    The export header records the float it was given, so the filter must not
-    round it: a rate written as 0.000001 but recorded as 0.0000014 would skew
-    every `1 / sample` estimate.
+    The single place the bounds live: export.check_sample and build_sample_filter both call it.
+    A bool is refused even though Python treats it as an int.
     """
-    return f"{rate:.15f}".rstrip("0").rstrip(".") or "0"
+    if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not MIN_SAMPLE <= rate <= 1:
+        raise CloudArmorError(f"sample rate must be between {MIN_SAMPLE:f} and 1, got {rate!r}")
+    return rate
+
+
+def _format_rate(rate: float) -> str:
+    """The rate as a plain decimal (no exponent), digit for digit what repr() prints.
+
+    The export header records the float it was given, so the filter must carry the
+    same value: a rounded rate would skew every `1 / sample` estimate.
+    """
+    from decimal import Decimal
+
+    return format(Decimal(repr(float(rate))), "f")
 
 
 def build_sample_filter(backend_services: list[str], start: datetime, end: datetime, rate: float) -> str:
@@ -147,8 +159,7 @@ def build_sample_filter(backend_services: list[str], start: datetime, end: datet
     """
     if end <= start:
         raise CloudArmorError("window end must be after its start")
-    if not isinstance(rate, (int, float)) or not MIN_SAMPLE <= rate <= 1:
-        raise CloudArmorError(f"sample rate must be between {MIN_SAMPLE:f} and 1, got {rate!r}")
+    validate_sample(rate)
     parts = ['resource.type="http_load_balancer"']
     backend = _backend_clause(backend_services)
     if backend:

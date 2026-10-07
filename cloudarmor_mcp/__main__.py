@@ -30,6 +30,8 @@ def _export_cli(name: str, argv: list[str]) -> int:
     from cloudarmor_mcp import export
     from cloudarmor_mcp.client import CloudArmorError, Config
 
+    if name not in ("deny-export", "traffic-export"):
+        raise ValueError(f"unknown export subcommand {name!r}")
     traffic = name == "traffic-export"
     parser = argparse.ArgumentParser(
         prog=f"cloudarmor-mcp {name}",

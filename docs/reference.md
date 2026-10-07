@@ -105,7 +105,8 @@ The same layout and record fields as `deny-export`, with these differences:
 | `sample` | the rate passed to `sample(insertId, ...)`; replaces `kind` |
 | `entries[]` | every load-balancer request kept by the sample — allowed, denied and cache-served |
 | `entries[].cache_hit` | `true` when the response came from the CDN cache (also present in `deny-export` records, always `false` there in practice) |
-| `entries[].enforced` | `null` for requests Cloud Armor did not evaluate, such as cache hits; `region` and `asn` are `null` for those too |
+| `entries[].enforced` | `null` when no backend security policy evaluated the request (a CDN cache hit, for example); `region` and `asn` are `null` then too. Use `cache_hit` to tell cache hits apart |
+| `capped` | as in `deny-export`; when `true` the export is the early part of the day only (entries are read oldest first), so do not scale it by `1 / sample` |
 
 ## Log filters
 

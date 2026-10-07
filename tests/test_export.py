@@ -336,10 +336,14 @@ def test_sample_filter_matches_every_request_and_thins_by_insert_id():
     assert build_sample_filter([], start, end, 0.000001).endswith("sample(insertId, 0.000001)")  # no exponent
     assert build_sample_filter([], start, end, 0.0000014).endswith("sample(insertId, 0.0000014)")  # not rounded
     assert build_sample_filter([], start, end, 0.1).endswith("sample(insertId, 0.1)")
+    assert build_sample_filter([], start, end, 0.3333333333333333).endswith("sample(insertId, 0.3333333333333333)")
+    assert build_sample_filter([], start, end, 0.00000123456789012345).endswith(
+        "sample(insertId, 0.00000123456789012345)"
+    )
     assert "sample(" not in build_sample_filter([], start, end, 1)
 
 
-@pytest.mark.parametrize("rate", [0, -0.5, 1.5, 0.0000001, "0.1", float("nan")])
+@pytest.mark.parametrize("rate", [0, -0.5, 1.5, 0.0000001, "0.1", float("nan"), True])
 def test_sample_filter_rejects_bad_rates(rate):
     start, end = export.day_window("2026-09-23", "UTC", now=NOW)
     with pytest.raises(CloudArmorError):
@@ -375,7 +379,9 @@ def test_traffic_export_document_keeps_cache_hits_and_records_the_rate():
     assert doc["filter"].endswith("sample(insertId, 0.05)") and fake.calls[0][1:] == (101, True)
 
 
-@pytest.mark.parametrize("kw", [{"sample": 0}, {"sample": 2}, {"max_entries": 0}, {"date": "2026-09-24"}])
+@pytest.mark.parametrize(
+    "kw", [{"sample": 0}, {"sample": 2}, {"sample": True}, {"max_entries": 0}, {"date": "2026-09-24"}]
+)
 def test_traffic_export_rejects_bad_options_before_querying(kw):
     fake = FakeClient([])
     args = dict(

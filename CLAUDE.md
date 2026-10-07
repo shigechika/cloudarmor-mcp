@@ -83,7 +83,8 @@ when reasoning about that contract.
   `run_export` and `run_traffic_export`). The one place that emits
   per-request log data (see REVIEW.md).
 - `cloudarmor_mcp/__main__.py` — console script (`cloudarmor-mcp`),
-  `--check`, `--brief` and the `deny-export` dispatch.
+  `--check`, `--brief` and the `deny-export` / `traffic-export` dispatch
+  (both through `_export_cli()`).
 - `scripts/smoke_harness.py` — a **verbatim shared copy** used by
   sibling MCP servers and drift-checked across repositories. Changes
   belong upstream, not here.

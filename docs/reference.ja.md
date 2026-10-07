@@ -79,6 +79,19 @@ cloudarmor-mcp traffic-export --date YYYY-MM-DD [--tz ZONE] [--sample RATE] [--m
 「WAF が静かだった」のか「ログを読めなかった」のかを区別できます。テキストの
 レポートだけでは区別がつきません。
 
+### `traffic-export` の文書
+
+形とレコードの項目は `deny-export` と同じで、違いは次のとおりです。
+
+| 項目 | 意味 |
+|---|---|
+| `schema` | `cloudarmor-mcp/traffic-export/1` |
+| `sample` | `sample(insertId, ...)` に渡した割合。`kind` の代わりに入る |
+| `entries[]` | 間引いて残った、ロードバランサーの全リクエスト（許可・拒否・キャッシュからの応答） |
+| `entries[].cache_hit` | CDN のキャッシュから返したとき `true`（`deny-export` のレコードにも入るが、実際には常に `false`） |
+| `entries[].enforced` | バックエンドのセキュリティポリシーが評価しなかったとき（CDN のキャッシュ命中など）`null`。そのとき `region` と `asn` も `null`。キャッシュ命中かどうかは `cache_hit` で見分ける |
+| `capped` | `deny-export` と同じ。`true` のときは古い順に読んだ 1 日の前半だけなので、`1 / sample` 倍しない |
+
 ## ログフィルタ
 
 参考までに、サーバーが組み立てる Cloud Logging フィルタは次の形です。
