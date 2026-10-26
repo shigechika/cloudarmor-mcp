@@ -111,3 +111,13 @@ claude mcp add cloudarmor -- cloudarmor-mcp
 ```bash
 cloudarmor-mcp --check   # exit 0 かつ "healthy — cloudarmor-mcp <version> project=<id>"
 ```
+
+### Codex
+
+```bash
+codex mcp add cloudarmor -- cloudarmor-mcp
+```
+
+上記の環境変数は `--env KEY=VALUE` で（`--` の前に）渡してください。
+
+stdio サーバーを起動できる MCP クライアントなら、どれでも同じ形で使えます。コマンドに `cloudarmor-mcp` を指定し、上記の環境変数を設定してください。
