@@ -100,6 +100,18 @@ claude mcp add cloudarmor -- cloudarmor-mcp
 
 with the environment variables above in the server's env.
 
+### 7. Codex
+
+```bash
+codex mcp add cloudarmor -- cloudarmor-mcp
+```
+
+Pass the environment variables above with `--env KEY=VALUE` (before `--`).
+
+Any other MCP client that launches stdio servers works the same way: give it
+`cloudarmor-mcp` as the command and set the environment variables above in its
+environment.
+
 ## CLI
 
 ```bash
