@@ -53,13 +53,17 @@ jobs:
   # Guards against stdio newline regressions
   # (cf. modelcontextprotocol/python-sdk#2433) -- platform-level, not
   # version-specific, so tracking the current stable release here is enough.
+  #
+  # Pinned rather than "3.x": this is a required check, and "3.x" picked up
+  # Python 3.15 the day it shipped, before every dependency had a wheel for it,
+  # which turned unrelated PRs red. Bump the pin once the dependencies install.
   test-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.x"
+          python-version: "3.14"
       - id: pyver
         shell: bash
         run: echo "v=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" >> "$GITHUB_OUTPUT"
