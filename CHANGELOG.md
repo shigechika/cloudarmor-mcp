@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.7.0...v0.8.0) (2026-11-14)
+
+
+### Features
+
+* drop Python 3.10 (EOL) and add Python 3.15 support ([#41](https://github.com/shigechika/cloudarmor-mcp/issues/41)) ([79ff4f1](https://github.com/shigechika/cloudarmor-mcp/commit/79ff4f1c177f883067c796c50d54227c53565261))
+
 ## [0.7.0](https://github.com/shigechika/cloudarmor-mcp/compare/v0.6.0...v0.7.0) (2026-10-07)
 
 
