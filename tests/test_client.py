@@ -1,12 +1,12 @@
 """Tests for filter building and configuration."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from cloudarmor_mcp.client import CloudArmorError, Config, build_filter, start_time
 
-NOW = datetime(2026, 8, 6, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 6, 12, 0, 0, tzinfo=UTC)
 
 
 def test_start_time_subtracts_window():

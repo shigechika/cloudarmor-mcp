@@ -143,10 +143,6 @@ when reasoning about that contract.
   `home_region_denies` and `_daily_brief_text`), so on an unconfigured
   server they raise rather than degrading. `health_check` is the tool
   that answers "is this thing configured".
-- **Python 3.11 is installable but untested.** `requires-python` is
-  `>=3.10`, while the CI matrix and the trove classifiers both list
-  3.10 / 3.12 / 3.13 only. The two lists agree with each other, so this
-  looks deliberate — but a 3.11 user is on an untested interpreter.
 - **`google-cloud-logging>=3,<4` has an upper bound with no recorded
   rationale**, unlike `mcp>=1.2,<2` which has three (SDK 2.0 removed
   `mcp.server.fastmcp`). Dependabot does **not** ignore majors for
