@@ -3,14 +3,14 @@
 import io
 import json
 from collections import namedtuple
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from cloudarmor_mcp import export
 from cloudarmor_mcp.client import CloudArmorError, build_sample_filter, build_window_filter
 
-NOW = datetime(2026, 9, 24, 3, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 9, 24, 3, 0, 0, tzinfo=UTC)
 Resource = namedtuple("Resource", "labels")
 
 
@@ -54,7 +54,7 @@ def _deny(priority=4242.0, ip="198.51.100.7", url="https://www.example.org/index
     return FakeEntry(
         payload,
         http,
-        ts=kw.get("ts", datetime(2026, 9, 23, 1, 2, 3, tzinfo=timezone.utc)),
+        ts=kw.get("ts", datetime(2026, 9, 23, 1, 2, 3, tzinfo=UTC)),
         **{k: v for k, v in kw.items() if k != "ts"},
     )
 
@@ -83,13 +83,13 @@ def _run(entries, **kw):
 
 def test_day_window_jst_converts_to_utc():
     start, end = export.day_window("2026-09-23", "Asia/Tokyo", now=NOW)
-    assert start.astimezone(timezone.utc).isoformat() == "2026-09-22T15:00:00+00:00"
-    assert end.astimezone(timezone.utc).isoformat() == "2026-09-23T15:00:00+00:00"
+    assert start.astimezone(UTC).isoformat() == "2026-09-22T15:00:00+00:00"
+    assert end.astimezone(UTC).isoformat() == "2026-09-23T15:00:00+00:00"
 
 
 def test_day_window_dst_transition_day_is_23_hours():
     start, end = export.day_window("2026-03-08", "America/New_York", now=NOW)
-    assert (end.astimezone(timezone.utc) - start.astimezone(timezone.utc)).total_seconds() == 23 * 3600
+    assert (end.astimezone(UTC) - start.astimezone(UTC)).total_seconds() == 23 * 3600
 
 
 @pytest.mark.parametrize(
@@ -323,7 +323,7 @@ def _allowed(cache_hit=False, insert_id="t1"):
         "userAgent": "Mozilla/5.0",
         "cacheHit": cache_hit,
     }
-    return FakeEntry(payload, http, ts=datetime(2026, 9, 23, 1, 2, 3, tzinfo=timezone.utc), insert_id=insert_id)
+    return FakeEntry(payload, http, ts=datetime(2026, 9, 23, 1, 2, 3, tzinfo=UTC), insert_id=insert_id)
 
 
 def test_sample_filter_matches_every_request_and_thins_by_insert_id():

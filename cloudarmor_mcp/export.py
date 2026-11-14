@@ -14,7 +14,7 @@ import json
 import re
 import sys
 from collections.abc import Callable, Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -61,7 +61,7 @@ def day_window(date: str, tz: str, now: datetime | None = None) -> tuple[datetim
         raise ExportConfigError(f"unknown time zone {tz!r}") from e
     start = datetime(d.year, d.month, d.day, tzinfo=zone)
     end = datetime.combine(d + timedelta(days=1), datetime.min.time(), tzinfo=zone)
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     if end > now:
         raise ExportConfigError(f"{date} has not ended yet in {tz}")
     return start, end
@@ -111,7 +111,7 @@ def entry_to_record(entry) -> dict:
     ua = http.get("userAgent")
     return {
         "id": getattr(entry, "insert_id", None),
-        "ts": ts.astimezone(timezone.utc).isoformat() if isinstance(ts, datetime) else None,
+        "ts": ts.astimezone(UTC).isoformat() if isinstance(ts, datetime) else None,
         "enforced": _policy(payload.get("enforcedSecurityPolicy")),
         "preview": _policy(payload.get("previewSecurityPolicy")),
         "status_details": payload.get("statusDetails"),

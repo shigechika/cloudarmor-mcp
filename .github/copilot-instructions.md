@@ -108,7 +108,7 @@ consumer, never query-string contents, cookies or other headers.
 
 `tests/` runs without network access or Google credentials: `test_client.py`
 covers filter construction and config parsing, `test_server.py` injects a fake
-log client. CI runs Python 3.10 / 3.12 / 3.13 on Linux plus 3.12 on Windows.
+log client. CI runs Python 3.11–3.15 on Linux plus 3.14 on Windows.
 
 - New behaviour should be testable the same way. Flag tests that would require
   live GCP access to run.

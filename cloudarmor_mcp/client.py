@@ -10,7 +10,7 @@ import os
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 # Minimum seconds between two entries.list pages in raw_entries: 60 requests/minute is the default quota.
 PAGE_INTERVAL = 1.2
@@ -51,7 +51,7 @@ def _quote(value: str) -> str:
 
 def start_time(since_hours: float, now: datetime | None = None) -> str:
     """RFC3339 UTC timestamp for the start of the query window."""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     start = now - timedelta(hours=since_hours)
     return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -108,7 +108,7 @@ def build_filter(
 
 
 def _rfc3339(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def build_window_filter(kind: str, backend_services: list[str], start: datetime, end: datetime) -> str:
